@@ -1,9 +1,10 @@
 -- i18n.lua - Language / translations configuration for cheatgui
 -- Set _i18n.language to "zh" for Chinese, "en" for English (default)
 -- Add more languages by inserting a new table under _i18n.translations
+-- NOTE: language is overridden by config.lua on load (persistent user preference)
 
 _i18n = {
-    language = "zh",  -- "en" | "zh"
+    language = "zh",  -- "en" | "zh" (default, overridden by config if saved)
 
     translations = {
         en = {
@@ -69,6 +70,8 @@ _i18n = {
             tp_log_teleport = "Attempting to teleport to (%d, %d)",
             tp_separator = "---- Quick Teleports ----",
             tp_quick_teleport_format = "%s (%d, %d)",
+            tp_no_player = "Cannot teleport: player not found",
+            tp_invalid_coords = "Cannot teleport: invalid coordinates",
             tp_last_pos = "Last position",
             tp_section_holy_mountain = "---- Main Path ----",
             tp_section_scanned = "---- Side Biomes ----",
@@ -303,6 +306,8 @@ _i18n = {
             tp_log_teleport = "正在尝试传送到 (%d, %d)",
             tp_separator = "---- 快速传送 ----",
             tp_quick_teleport_format = "%s (%d, %d)",
+            tp_no_player = "无法传送：找不到玩家",
+            tp_invalid_coords = "无法传送：坐标无效",
             tp_last_pos = "上一次传送",
             tp_section_holy_mountain = "---- 主线(圣山) ----",
             tp_section_scanned = "---- 独立区域 ----",

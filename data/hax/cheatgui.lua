@@ -11,9 +11,24 @@ dofile_once("data/hax/gun_builder.lua")
 dofile_once("data/hax/superhackykb.lua")
 dofile_once("data/hax/utils.lua")
 dofile_once("data/hax/i18n.lua")
+dofile_once("data/hax/config.lua")
 
 local function T(key) return _i18n:t(key) end
 local function TF(key, ...) return _i18n:tf(key, ...) end
+
+-- 安全包装：避免 nil/空值传入底层 C++ API 引发崩溃
+local function safe_game_text(key, ...)
+  if not key or key == "" then return "" end
+  local ok, text = pcall(GameTextGet, key, ...)
+  if not ok or not text then return key end
+  return text
+end
+
+local function safe_biome_name(x, y)
+  local ok, name = pcall(BiomeMapGetName, x, y)
+  if not ok or not name or name == "" then return "?" end
+  return name
+end
 
 -- 延迟求值：如果 v 是函数则调用它，否则直接返回
 local function resolve_str(v)
@@ -593,12 +608,35 @@ end}
 local xpos_widget, xpos_val = create_numerical(function() return T("tp_x") end, {100, 1000, 10000}, 0, 'int')
 local ypos_widget, ypos_val = create_numerical(function() return T("tp_y") end, {100, 1000, 10000}, 0, 'int')
 
+-- ── 传送面板折叠状态 ──────────────────────────────────
+_tp_collapsed = _tp_collapsed or {}
+
+local function tp_section_header(key, label)
+  local collapsed = _tp_collapsed[key] or false
+  local icon = collapsed and "[+] " or "[-] "
+  if GuiButton(gui, 0, 0, icon .. label, next_id()) then
+    _tp_collapsed[key] = not collapsed
+  end
+  return collapsed
+end
+
 -- ── 上次传送位置跟踪 ──────────────────────────────────
 local _last_tp_x, _last_tp_y = nil, nil
 local function do_teleport(x, y)
+  local player = get_player()
+  if not player or not EntityGetIsAlive(player) then
+    GamePrint(T("tp_no_player"))
+    return
+  end
+  x = tonumber(x)
+  y = tonumber(y)
+  if not x or not y then
+    GamePrint(T("tp_invalid_coords"))
+    return
+  end
   local cur_x, cur_y = get_player_pos()
-  _last_tp_x, _last_tp_y = math.floor(cur_x), math.floor(cur_y)
-  teleport(x, y)
+  _last_tp_x, _last_tp_y = math.floor(tonumber(cur_x) or 0), math.floor(tonumber(cur_y) or 0)
+  EntitySetTransform(player, x, y)
 end
 
 -- ── 圣山快速传送（保持原有逻辑） ──────────────────────
@@ -613,7 +651,7 @@ local function find_quick_teleports()
   local temp_mountains = {}
   local prev_biome = "?"
   for y = 0, 15000, 500 do
-    local cur_biome = BiomeMapGetName(0, y)
+    local cur_biome = safe_biome_name(0, y)
     if cur_biome == "$biome_holymountain" then
       temp_mountains[prev_biome] = y
     else
@@ -622,21 +660,24 @@ local function find_quick_teleports()
   end
   local function refine_position(y0)
     for y = y0, y0+500, 10 do
-      local cur_biome = BiomeMapGetName(0, y)
+      local cur_biome = safe_biome_name(0, y)
       if cur_biome ~= "$biome_holymountain" then
         return y-10, cur_biome
       end
     end
+    return y0, "?"
   end
   for biome, y in pairs(temp_mountains) do
     local teleport_y, next_biome = refine_position(y)
     teleport_y = teleport_y-200
     local teleport_x = -200
-    if SPECIAL_LOCATIONS[next_biome] then
+    if next_biome and SPECIAL_LOCATIONS[next_biome] then
       teleport_x = SPECIAL_LOCATIONS[next_biome].x or teleport_x
       teleport_y = SPECIAL_LOCATIONS[next_biome].y or teleport_y
     end
-    table.insert(quick_teleports, {GameTextGet(next_biome), teleport_x, teleport_y})
+    local label = safe_game_text(next_biome)
+    if not label or label == "" or label == "?" then label = biome end
+    table.insert(quick_teleports, {label, teleport_x, teleport_y})
   end
   table.sort(quick_teleports, function(a, b) return a[3] < b[3] end)
   return quick_teleports
@@ -668,7 +709,7 @@ local function find_scanned_areas()
     local found_biome, found_y = nil, nil
     -- 粗略扫描
     for y = cfg.y_min, cfg.y_max, cfg.step do
-      local biome = BiomeMapGetName(cfg.search_x, y)
+      local biome = safe_biome_name(cfg.search_x, y)
       for _, name in ipairs(cfg.biome_names) do
         if biome == name then
           found_biome = biome
@@ -682,7 +723,7 @@ local function find_scanned_areas()
       -- 细化: 找到生物群系的底部
       local exit_y = found_y
       for y = found_y, found_y + 1000, 10 do
-        local cur = BiomeMapGetName(cfg.search_x, y)
+        local cur = safe_biome_name(cfg.search_x, y)
         local still_in_biome = false
         for _, name in ipairs(cfg.biome_names) do
           if cur == name then still_in_biome = true; break end
@@ -694,7 +735,7 @@ local function find_scanned_areas()
       end
       local tp_x = cfg.search_x + (cfg.offset_x or 0)
       local tp_y = exit_y + (cfg.offset_y or -200)
-      table.insert(scanned_areas, {GameTextGet(found_biome), tp_x, tp_y})
+      table.insert(scanned_areas, {safe_game_text(found_biome), tp_x, tp_y})
     end
   end
   table.sort(scanned_areas, function(a, b) return a[3] < b[3] end)
@@ -707,8 +748,8 @@ end
 
 -- 辅助函数: 生成带本地化名称的标签
 local function loc_label(key, fallback, x, y)
-  local name = GameTextGet(key)
-  if not name or name == "" then name = T(fallback) end
+  local name = safe_game_text(key)
+  if not name or name == "" or name == key then name = T(fallback) end
   return name, x, y
 end
 
@@ -829,48 +870,63 @@ teleport_panel = Panel{function() return T("panel_teleport") end, function()
     end
   end
 
-  -- 主线（圣山扫描）
+  -- 分组以两列网格平铺，减少纵向长度
+  local function draw_section(key, label, list, is_scanned)
+    if not tp_section_header(key, label) then
+      if is_scanned then
+        draw_scanned_button_list(list)
+      else
+        draw_tp_button_list(list)
+      end
+    end
+  end
+
   local holy_mountains = find_quick_teleports()
-  if #holy_mountains > 0 then
-    GuiText(gui, 0, 0, " ")
-    GuiText(gui, 0, 0, T("tp_section_holy_mountain"))
-    draw_scanned_button_list(holy_mountains)
-  end
-
-  -- 独立生物群系扫描
   local scanned = find_scanned_areas()
-  if #scanned > 0 then
-    GuiText(gui, 0, 0, " ")
-    GuiText(gui, 0, 0, T("tp_section_scanned"))
-    draw_scanned_button_list(scanned)
+
+  local section_defs = {
+    {key = "holy_mountain", label = T("tp_section_holy_mountain"), list = holy_mountains, scanned = true,  cond = #holy_mountains > 0},
+    {key = "scanned",       label = T("tp_section_scanned"),       list = scanned,       scanned = true,  cond = #scanned > 0},
+    {key = "world",         label = T("tp_section_world"),         list = FIXED_WORLD,   scanned = false, cond = true},
+    {key = "orbs",          label = T("tp_section_orbs"),          list = FIXED_ORBS,    scanned = false, cond = true},
+    {key = "essences",      label = T("tp_section_essences"),      list = FIXED_ESSENCES,scanned = false, cond = true},
+    {key = "bosses",        label = T("tp_section_bosses"),        list = FIXED_BOSSES,  scanned = false, cond = true},
+    {key = "eaters",        label = T("tp_section_eaters"),        list = FIXED_EATERS,  scanned = false, cond = true},
+  }
+
+  local visible_sections = {}
+  for _, sec in ipairs(section_defs) do
+    if sec.cond then
+      table.insert(visible_sections, sec)
+    end
   end
 
-  -- 主世界结构（硬编码）
-  GuiText(gui, 0, 0, " ")
-  GuiText(gui, 0, 0, T("tp_section_world"))
-  draw_tp_button_list(FIXED_WORLD)
-
-  -- 魔球
-  GuiText(gui, 0, 0, " ")
-  GuiText(gui, 0, 0, T("tp_section_orbs"))
-  draw_tp_button_list(FIXED_ORBS)
-
-  -- 精粹
-  GuiText(gui, 0, 0, " ")
-  GuiText(gui, 0, 0, T("tp_section_essences"))
-  draw_tp_button_list(FIXED_ESSENCES)
-
-  -- BOSS
-  GuiText(gui, 0, 0, " ")
-  GuiText(gui, 0, 0, T("tp_section_bosses"))
-  draw_tp_button_list(FIXED_BOSSES)
-
-  -- 精粹吞噬者
-  GuiText(gui, 0, 0, " ")
-  GuiText(gui, 0, 0, T("tp_section_eaters"))
-  draw_tp_button_list(FIXED_EATERS)
-
+  -- 基础操作之后结束外层纵向布局，分类以独立纵列绝对定位
   GuiLayoutEnd(gui)
+
+  local max_cols = 2
+
+  local col_width = 45
+  local col_start_y = 40
+  local columns = {}
+  for i = 1, max_cols do columns[i] = {} end
+  for i, sec in ipairs(visible_sections) do
+    local col = ((i - 1) % max_cols) + 1
+    table.insert(columns[col], sec)
+  end
+
+  for col_idx, col_sections in ipairs(columns) do
+    if #col_sections == 0 then break end
+    local x = 1 + (col_idx - 1) * col_width
+    GuiLayoutBeginVertical(gui, x, col_start_y)
+    for _, sec in ipairs(col_sections) do
+      GuiText(gui, 0, 0, " ")
+      draw_section(sec.key, sec.label, sec.list, sec.scanned)
+    end
+    GuiLayoutEnd(gui)
+  end
+
+
 end}
 
 local cur_hp_widget, cur_hp_val = create_numerical(function() return T("hp_hp") end, {1, 4}, 4, 'hearts')
@@ -1092,6 +1148,9 @@ local function wrap_localized(f)
     localization_widget(31, 3)
     local localization_changed = (prev_localization ~= localization_val.value)
     prev_localization = localization_val.value
+    if localization_changed then
+      _config:set("show_localized_names", localization_val.value)
+    end
     f(localization_changed)
   end
 end
@@ -1249,12 +1308,22 @@ local lang_widget, lang_val = create_radio(function() return T("settings_languag
   {function() return T("lang_en") end, "en"}, {function() return T("lang_zh") end, "zh"}
 }, (_i18n.language == "zh" and 2 or 1))
 
+-- 从永久配置加载用户偏好，覆盖默认值
+_config:load()
+_i18n.language = _config:get("language")
+lang_val.value = _i18n.language
+lang_val.index = (_i18n.language == "zh") and 2 or 1
+
+localization_val.value = _config:get("show_localized_names")
+localization_val.index = localization_val.value and 1 or 2
+
 local settings_panel = Panel{function() return T("panel_settings") end, function()
   breadcrumbs(1, 0)
   GuiLayoutBeginVertical(gui, 1, 11)
   lang_widget(1, 11)
   if lang_val.value ~= _i18n.language then
     _i18n.language = lang_val.value
+    _config:set("language", lang_val.value)
   end
   GuiLayoutEnd(gui)
 end}
