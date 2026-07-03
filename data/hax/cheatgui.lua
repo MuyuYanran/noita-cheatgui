@@ -593,6 +593,15 @@ end}
 local xpos_widget, xpos_val = create_numerical(function() return T("tp_x") end, {100, 1000, 10000}, 0, 'int')
 local ypos_widget, ypos_val = create_numerical(function() return T("tp_y") end, {100, 1000, 10000}, 0, 'int')
 
+-- ── 上次传送位置跟踪 ──────────────────────────────────
+local _last_tp_x, _last_tp_y = nil, nil
+local function do_teleport(x, y)
+  local cur_x, cur_y = get_player_pos()
+  _last_tp_x, _last_tp_y = math.floor(cur_x), math.floor(cur_y)
+  teleport(x, y)
+end
+
+-- ── 圣山快速传送（保持原有逻辑） ──────────────────────
 local SPECIAL_LOCATIONS = {
   ["$biome_lava"] = {x=2300}
 }
@@ -619,7 +628,6 @@ local function find_quick_teleports()
       end
     end
   end
-  local mountains = {}
   for biome, y in pairs(temp_mountains) do
     local teleport_y, next_biome = refine_position(y)
     teleport_y = teleport_y-200
@@ -628,13 +636,170 @@ local function find_quick_teleports()
       teleport_x = SPECIAL_LOCATIONS[next_biome].x or teleport_x
       teleport_y = SPECIAL_LOCATIONS[next_biome].y or teleport_y
     end
-    local label = TF("tp_quick_teleport_format", GameTextGet(next_biome), teleport_x, teleport_y)
-    table.insert(quick_teleports, {label, teleport_x, teleport_y})
+    table.insert(quick_teleports, {GameTextGet(next_biome), teleport_x, teleport_y})
   end
   table.sort(quick_teleports, function(a, b) return a[3] < b[3] end)
   return quick_teleports
 end
 
+-- ── 独立生物群系扫描 ──────────────────────────────────
+-- 这些地点是独立的生物群系，可通过 BiomeMapGetName 沿垂直线扫描发现
+-- config: {search_x, biome_names:{string}, y_min, y_max, step, offset_x, offset_y}
+local SCANNABLE_AREAS = {
+  {search_x=-14000, biome_names={"$biome_lake"},                     y_min=0,   y_max=1000,  step=100, offset_x=0,    offset_y=-50},
+  {search_x=-3665,  biome_names={"$biome_lukkimonster"},             y_min=7000,y_max=9000,  step=100, offset_x=0,    offset_y=-100},
+  {search_x=9706,   biome_names={"$biome_wizardcave"},               y_min=12000,y_max=13500,step=100, offset_x=0,    offset_y=-100},
+  {search_x=12350,  biome_names={"$biome_powerplant"},               y_min=7500,y_max=9000,  step=100, offset_x=0,    offset_y=-100},
+  {search_x=-3150,  biome_names={"$biome_ancientlab"},               y_min=500, y_max=1500,  step=100, offset_x=0,    offset_y=-100},
+  {search_x=9740,   biome_names={"$biome_tower"},                    y_min=8500,y_max=10000, step=100, offset_x=0,    offset_y=-100},
+  {search_x=260,    biome_names={"$biome_moon"},                     y_min=-26500,y_max=-25500,step=100,offset_x=0,   offset_y=-100},
+  {search_x=235,    biome_names={"$biome_hell","$biome_hell_moon"},  y_min=-38000,y_max=-37000,step=100,offset_x=0,  offset_y=-100},
+  {search_x=13188,  biome_names={"$biome_thicket"},                  y_min=3800,y_max=5000,  step=100, offset_x=0,    offset_y=-100},
+  {search_x=-2600,  biome_names={"$biome_wandcave"},                 y_min=3300,y_max=4200,  step=100, offset_x=0,    offset_y=-100},
+  {search_x=6241,   biome_names={"$biome_boss_arena","$biome_finalcave","$biome_the_end"}, y_min=14500,y_max=15500,step=100,offset_x=0,offset_y=-200},
+}
+
+local scanned_areas = nil
+local function find_scanned_areas()
+  if scanned_areas then return scanned_areas end
+  scanned_areas = {}
+
+  for _, cfg in ipairs(SCANNABLE_AREAS) do
+    local found_biome, found_y = nil, nil
+    -- 粗略扫描
+    for y = cfg.y_min, cfg.y_max, cfg.step do
+      local biome = BiomeMapGetName(cfg.search_x, y)
+      for _, name in ipairs(cfg.biome_names) do
+        if biome == name then
+          found_biome = biome
+          found_y = y
+          break
+        end
+      end
+      if found_biome then break end
+    end
+    if found_biome then
+      -- 细化: 找到生物群系的底部
+      local exit_y = found_y
+      for y = found_y, found_y + 1000, 10 do
+        local cur = BiomeMapGetName(cfg.search_x, y)
+        local still_in_biome = false
+        for _, name in ipairs(cfg.biome_names) do
+          if cur == name then still_in_biome = true; break end
+        end
+        if not still_in_biome then
+          exit_y = y - 10
+          break
+        end
+      end
+      local tp_x = cfg.search_x + (cfg.offset_x or 0)
+      local tp_y = exit_y + (cfg.offset_y or -200)
+      table.insert(scanned_areas, {GameTextGet(found_biome), tp_x, tp_y})
+    end
+  end
+  table.sort(scanned_areas, function(a, b) return a[3] < b[3] end)
+  return scanned_areas
+end
+
+-- ── 硬编码位置 ────────────────────────────────────────
+-- 这些是生物群系内的结构、实体生成点，无法通过 BiomeMapGetName 精确定位
+-- 标签名使用 GameTextGet 尝试获取游戏内名称，否则使用 i18n key 回退
+
+-- 辅助函数: 生成带本地化名称的标签
+local function loc_label(key, fallback, x, y)
+  local name = GameTextGet(key)
+  if not name or name == "" then name = T(fallback) end
+  return name, x, y
+end
+
+-- 主世界内部结构
+local FIXED_WORLD = {
+  -- {game_text_key, i18n_fallback, x, y}
+  {"$biome_pyramid",         "tp_loc_pyramid",           8900,  -320},
+  {"$biome_snowcastle",          "tp_loc_frozen_vault",      -10000, 360},
+  {"",                       "tp_loc_floating_island",   774,   -1197},
+  {"$biome_pyramid",         "tp_loc_pyramid_top",       9980,  -1170},
+  {"",                       "tp_loc_tree_top",          -1470, -1300},
+  {"$biome_lake",            "tp_loc_lake_hut",          -14070, 90},
+  {"",                       "tp_loc_sky_shop",          3350,  -13100},
+  {"$biome_tower",           "tp_loc_tower_wand",        9980,  4340},
+  {"",                       "tp_loc_snow_eye",          -2440, -210},
+  {"",                       "tp_loc_notes",             -3330, 3350},
+  {"",                       "tp_loc_gatling_wand",      16130, 10000},
+  {"",                       "tp_loc_moon_radar",        16130, 3345},
+  {"",                       "tp_loc_perk_altar",        14050, 7550},
+  {"",                       "tp_loc_dark_altar",        3840,  15590},
+}
+
+-- 魔球
+local FIXED_ORBS = {
+  {"tp_orb_lake",        4354,  763},
+  {"tp_orb_2",          -10010, 2827},
+  {"tp_orb_4",           9955,  2819},
+  {"tp_orb_5",          -4375,  3867},
+  {"tp_orb_6",          -4859,  8973},
+  {"tp_orb_7",           4343,  814},
+  {"tp_orb_8",           -255,   16147},
+  {"tp_orb_9",          -8957,  14609},
+  {"tp_orb_10",          10476, 16148},
+}
+
+-- 精粹
+local FIXED_ESSENCES = {
+  {"tp_essence_earth",   16129, -1786},
+  {"tp_essence_water",  -5376,  16644},
+  {"tp_essence_alcohol",-14080, 13564},
+  {"tp_essence_fire",   -14051, 324},
+  {"tp_essence_air",    -13054, -5368},
+}
+
+-- BOSS
+local FIXED_BOSSES = {
+  {"tp_boss_final",      3500,  13060},
+  {"tp_boss_lake",      -13955, 9975},
+  {"tp_boss_powerplant", 13780, 11000},
+  {"tp_boss_forgotten", -11555, 13185},
+  {"tp_boss_dragon",     15115, 18635},
+  {"tp_boss_alchemist", -4870,  890},
+}
+
+-- 精粹吞噬者
+local FIXED_EATERS = {
+  {"tp_eater_snow",     -6880,  -165},
+  {"tp_eater_desert",   12575,  0},
+}
+
+-- 辅助：绘制固定坐标按钮列表（使用 i18n key 作为标签）
+local function draw_tp_button_list(list)
+  for _, entry in ipairs(list) do
+    local label, x, y
+    if #entry == 4 then
+      -- {game_text_key, i18n_fallback, x, y} 格式
+      local gtk, fallback = entry[1], entry[2]
+      label, x, y = loc_label(gtk, fallback, entry[3], entry[4])
+    else
+      -- {i18n_key, x, y} 格式
+      label, x, y = T(entry[1]), entry[2], entry[3]
+    end
+    if GuiButton(gui, 0, 0, TF("tp_quick_teleport_format", label, x, y), next_id()) then
+      GamePrint(TF("tp_log_teleport", x, y))
+      do_teleport(x, y)
+    end
+  end
+end
+
+-- 辅助：绘制扫描结果按钮列表
+local function draw_scanned_button_list(list)
+  for _, loc in ipairs(list) do
+    local label, x, y = loc[1], loc[2], loc[3]
+    if GuiButton(gui, 0, 0, TF("tp_quick_teleport_format", label, x, y), next_id()) then
+      GamePrint(TF("tp_log_teleport", x, y))
+      do_teleport(x, y)
+    end
+  end
+end
+
+-- ── 传送面板 ──────────────────────────────────────────
 teleport_panel = Panel{function() return T("panel_teleport") end, function()
   xpos_widget(1, 12)
   ypos_widget(1, 16)
@@ -642,26 +807,69 @@ teleport_panel = Panel{function() return T("panel_teleport") end, function()
   breadcrumbs(1, 0)
 
   GuiLayoutBeginVertical(gui, 1, 20)
-  if GuiButton( gui, 0, 0, T("tp_get_pos"), next_id() ) then
+  -- 基础传送操作
+  if GuiButton(gui, 0, 0, T("tp_get_pos"), next_id()) then
     local x, y = get_player_pos()
     xpos_val.value, ypos_val.value = math.floor(x), math.floor(y)
   end
-  if GuiButton( gui, 0, 0, T("tp_zero_pos"), next_id() ) then
+  if GuiButton(gui, 0, 0, T("tp_zero_pos"), next_id()) then
     xpos_val.value, ypos_val.value = 0, 0
   end
-  if GuiButton( gui, 0, 0, T("tp_teleport"), next_id() ) then
+  if GuiButton(gui, 0, 0, T("tp_teleport"), next_id()) then
     GamePrint(TF("tp_log_teleport", xpos_val.value, ypos_val.value))
-    teleport(xpos_val.value, ypos_val.value)
+    do_teleport(xpos_val.value, ypos_val.value)
   end
-  GuiText(gui, 0, 0, " ") -- spacer
-  GuiText(gui, 0, 0, T("tp_separator"))
-  for i, location in ipairs(find_quick_teleports()) do
-    local label, x, y = unpack(location)
-    if GuiButton(gui, 0, 0, label, next_id() ) then
-      GamePrint(TF("tp_log_teleport", x, y))
-      teleport(x, y)
+
+  -- 上一次传送
+  if _last_tp_x and _last_tp_y then
+    GuiText(gui, 0, 0, " ")
+    if GuiButton(gui, 0, 0, TF("tp_quick_teleport_format", T("tp_last_pos"), _last_tp_x, _last_tp_y), next_id()) then
+      GamePrint(TF("tp_log_teleport", _last_tp_x, _last_tp_y))
+      do_teleport(_last_tp_x, _last_tp_y)
     end
   end
+
+  -- 主线（圣山扫描）
+  local holy_mountains = find_quick_teleports()
+  if #holy_mountains > 0 then
+    GuiText(gui, 0, 0, " ")
+    GuiText(gui, 0, 0, T("tp_section_holy_mountain"))
+    draw_scanned_button_list(holy_mountains)
+  end
+
+  -- 独立生物群系扫描
+  local scanned = find_scanned_areas()
+  if #scanned > 0 then
+    GuiText(gui, 0, 0, " ")
+    GuiText(gui, 0, 0, T("tp_section_scanned"))
+    draw_scanned_button_list(scanned)
+  end
+
+  -- 主世界结构（硬编码）
+  GuiText(gui, 0, 0, " ")
+  GuiText(gui, 0, 0, T("tp_section_world"))
+  draw_tp_button_list(FIXED_WORLD)
+
+  -- 魔球
+  GuiText(gui, 0, 0, " ")
+  GuiText(gui, 0, 0, T("tp_section_orbs"))
+  draw_tp_button_list(FIXED_ORBS)
+
+  -- 精粹
+  GuiText(gui, 0, 0, " ")
+  GuiText(gui, 0, 0, T("tp_section_essences"))
+  draw_tp_button_list(FIXED_ESSENCES)
+
+  -- BOSS
+  GuiText(gui, 0, 0, " ")
+  GuiText(gui, 0, 0, T("tp_section_bosses"))
+  draw_tp_button_list(FIXED_BOSSES)
+
+  -- 精粹吞噬者
+  GuiText(gui, 0, 0, " ")
+  GuiText(gui, 0, 0, T("tp_section_eaters"))
+  draw_tp_button_list(FIXED_EATERS)
+
   GuiLayoutEnd(gui)
 end}
 
