@@ -343,7 +343,7 @@ _i18n = {
             extra_full_heal = "[完全治疗]",
             extra_end_trip = "[结束真菌致幻]",
             extra_reset_timer = "[重置真菌转换计时]",
-            extra_spawn_orbs = "[生成宝珠]",
+            extra_spawn_orbs = "[生成魔球]",
             extra_open_console = "[打开控制台]",
 
             -- ====== Tourist mode ======
