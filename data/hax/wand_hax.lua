@@ -42,9 +42,9 @@ local function gen_gun()
 	ComponentSetValue( ability_comp, "mana_max", gun["mana_max"])
 	ComponentSetValue( ability_comp, "mana", gun["mana_max"])
 
-	ComponentSetValue( ability_comp, "item_recoil_recovery_speed", 15.0 ) -- TODO: implement logic for setting this
+	ComponentSetValue( ability_comp, "item_recoil_recovery_speed", 15.0 ) -- 待办：实现设置此值的逻辑
 
-	-- stuff in the gun
+	-- 法杖中的法术内容
 	local good_cards = 5
 	if( Random(0,100) < 7 ) then good_cards = Random(20,50) end
 
@@ -71,7 +71,7 @@ local function gen_gun()
 	card_count = Random( 0.51 * deck_capacity, deck_capacity )
 	card_count = clamp( card_count, 1, deck_capacity-1 )
 
-	-- card count is in between 1 and 6
+	-- 卡牌数量在 1 到 6 之间
 
 	if( Random(0,100) < (orig_level*10)-5 ) then
 		random_bullets = 1
@@ -94,7 +94,7 @@ local function gen_gun()
 
 	for i=1,card_count do
 		if( Random(0,100) < good_cards ) then
-			-- if actions_per_round == 1 and the first good card, then make sure it's a draw x
+			-- 如果 actions_per_round == 1 且是第一张好卡，确保它是抽取类法术
 			local card = 0
 			if( good_card_count == 0 and actions_per_round == 1 ) then
 				card = GetRandomActionWithType( x, y, level, ACTION_TYPE_DRAW_MANY, i )
@@ -121,7 +121,7 @@ local function gen_gun()
 	SetWandSprite( entity_id, ability_comp, wand.file, wand.grip_x, wand.grip_y, (wand.tip_x - wand.grip_x), (wand.tip_y - wand.grip_y) )
 	-- SetItemSprite( entity_id, ability_comp, "data/items_gfx/wands/wand_", Random( 0, 999 ) )
 
-	-- this way:
+	-- 另一种方式：
 	-- AddGunActionPermanent( entity_id, "ELECTRIC_CHARGE" )
 end
 gen_gun()

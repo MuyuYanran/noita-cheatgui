@@ -101,13 +101,13 @@ function replPrint(message) {
   } else if(message.indexOf("GAME>") == 0) {
     message = ansiRGB(200, 200, 200) + message + ansiReset();
   } else if(message.indexOf("COM>") == 0) {
-    // see how many suggestions we got
+    // 查看获得了多少条补全建议
     console.log("Got completion?");
     let parts = message.slice(4).split(" ");
     let prefix = parts[0];
     let opts = parts[1].split(",");
     if(opts.length == 1 && opts[0] != "") {
-      // fill in this completion
+      // 填入此补全项
       lineWindow.setValue(prefix + opts[0]);
       lineWindow.setCursor(lineWindow.lineCount(), 0);
     } else if(opts.length > 1) {
@@ -167,9 +167,8 @@ function initCodeMirror() {
       if(val == "") {
         return;
       }
-      // Note that [=[ some string ]=] is a special Lua
-      // string literal that allows nesting of other string
-      // literals, including the more typical [[ ]] pair
+      // 注意：[=[ 某字符串 ]=] 是 Lua 的一种特殊字符串字面量，
+      // 允许在其中嵌套其他字符串字面量，包括更常见的 [[ ]] 配对形式
       remoteEval(`complete([=[${val}]=])`);
     },
     "Up": function(cm) {
@@ -177,7 +176,7 @@ function initCodeMirror() {
       if(hpos > 0) {
         cm.setValue(commandHistory[hpos-1]);
       } else if(hpos == 0) {
-        // don't do anything
+        // 什么都不做
       } else {
         cm.setValue(commandHistory[commandHistory.length-1]);
       }
@@ -203,6 +202,6 @@ function initCodeMirror() {
   fit.fit();
 
   repl.writeln('Noita console');
-  repl.writeln('(Note that this panel is for output only)');
+  repl.writeln('（注意：此面板仅用于输出）');
   repl.writeln('');
 }

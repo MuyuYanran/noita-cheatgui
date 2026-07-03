@@ -1,14 +1,14 @@
 --[[ 
-pollnet bindings for luajit
+pollnet 的 LuaJIT 绑定
 
-example usage to read twitch chat:
+读取 Twitch 聊天室的示例用法：
 local pollnet = require("pollnet")
-local async = require("async") -- assuming you have some kind of async
+local async = require("async") -- 假设你拥有某种异步库
 async.run(function()
   local url = "wss://irc-ws.chat.twitch.tv:443"
   local sock = pollnet.open_ws(url)
   sock:send("PASS doesntmatter")
-  -- special nick for anon read-only access on twitch
+  -- Twitch 匿名只读访问的特殊昵称
   local anon_user_name = "justinfan" .. math.random(1, 100000)
   local target_channel = "your_channel_name_here"
   sock:send("NICK " .. anon_user_name)

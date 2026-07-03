@@ -1,4 +1,4 @@
--- stash the environment! (mainly to keep ModTextFileGetContent around!)
+-- 保存运行环境！（主要是为了保留 ModTextFileGetContent！）
 cheatgui_stash = {}
 for k, v in pairs(_G) do
   cheatgui_stash[k] = v

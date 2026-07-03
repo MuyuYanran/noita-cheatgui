@@ -16,7 +16,7 @@ local CHEATGUI_TITLE = "cheatgui " .. CHEATGUI_VERSION
 local console_connected = false
 
 if _keyboard_present then
-  -- have FFI
+  -- 拥有 FFI 支持
   dofile_once("data/hax/console.lua")
 else
   CHEATGUI_TITLE = CHEATGUI_TITLE .. "S" 
@@ -112,7 +112,7 @@ local function prev_panel()
     _change_active_panel(closed_panel)
     panel_stack = {}
   else
-    -- pop off last panel
+    -- 弹出最后一个面板
     panel_stack[#panel_stack] = nil
     _change_active_panel(panel_stack[#panel_stack])
   end
@@ -425,7 +425,7 @@ local function create_numerical(title, increments, default, kind)
   local text_wrapper = {
     value = "",
     on_change = function(_self)
-      -- eh?
+      -- 呃？占位回调
     end,
     on_gain_focus = function(_self)
       _self.has_focus = true
@@ -511,7 +511,7 @@ local spread_widget, spread_val = create_numerical("Spread", {0.1, 1}, 0.0, 'flo
 local speed_widget, speed_val = create_numerical("Speed", {0.01, 0.1}, 1.0, 'float')
 
 --local always_cast_choice = nil
-local MAX_ALWAYS_CASTS=10 -- eh
+local MAX_ALWAYS_CASTS=10 -- 最多10个始终施法法术
 local always_cast_index = 1
 local always_casts = {}
 local function compact_always_casts()
@@ -642,8 +642,8 @@ teleport_panel = Panel{"teleport", function()
     GamePrint(("Attempting to teleport to (%d, %d)"):format(xpos_val.value, ypos_val.value))
     teleport(xpos_val.value, ypos_val.value)
   end
-  GuiText(gui, 0, 0, " ") -- just a spacer
-  GuiText(gui, 0, 0, "----Quick Teleports----")
+  GuiText(gui, 0, 0, " ") -- 间隔符
+  GuiText(gui, 0, 0, "----快速传送----")
   for i, location in ipairs(find_quick_teleports()) do
     local label, x, y = unpack(location)
     if GuiButton(gui, 0, 0, label, next_id() ) then
@@ -670,8 +670,8 @@ health_panel = Panel{"health", function()
   if GuiButton( gui, 0, 0, "[Apply health changes]", next_id() ) then
     set_health(cur_hp_val.value, max_hp_val.value)
   end
-  GuiText(gui, 0, 0, " ") -- just a spacer
-  GuiText(gui, 0, 0, "----Quick health----")
+  GuiText(gui, 0, 0, " ") -- 间隔符
+  GuiText(gui, 0, 0, "----快速生命操作----")
   if GuiButton( gui, 0, 0, "[Add +25 max HP]", next_id() ) then
     cur_hp_val.value, max_hp_val.value = get_health()
     cur_hp_val.value, max_hp_val.value = cur_hp_val.value+1, max_hp_val.value+1
@@ -698,8 +698,8 @@ money_panel = Panel{"gold", function()
   if GuiButton( gui, 0, 0, "[Set current gold]", next_id() ) then
     set_money(money_val.value)
   end
-  GuiText(gui, 0, 0, " ") -- just a spacer
-  GuiText(gui, 0, 0, "----Quick cash----")
+  GuiText(gui, 0, 0, " ") -- 间隔符
+  GuiText(gui, 0, 0, "----快速金币----")
   if GuiButton( gui, 0, 0, "[+100 Gold]", next_id() ) then
     money_val.value = get_money()+100
     set_money(money_val.value)
@@ -715,7 +715,7 @@ money_panel = Panel{"gold", function()
   GuiLayoutEnd(gui)
 end}
 
--- build these button lists once so we aren't rebuilding them every frame
+-- 一次性构建按钮列表，避免每帧重复构建
 local function localized_name(thing)
   if localization_val.value then return thing.ui_name else return thing.id end
 end
@@ -896,12 +896,12 @@ local function spawn_item_button(item)
   spawn_item(item.path)
 end
 
--- merge special spawns into the base spawnlist
+-- 将特殊生成物合并到基础生成列表中
 for _, v in ipairs(special_spawnables) do
   table.insert(spawn_list, v)
 end
 
--- generate spawn item options
+-- 生成物品选项列表
 local spawn_options = {}
 for idx, item in ipairs(spawn_list) do
   spawn_options[idx] = {
@@ -1004,8 +1004,8 @@ console_panel = Panel{"console", function()
   if GuiButton( gui, 0, 0, "[Open new console]", next_id() ) then
     open_console()
   end
-  GuiText(gui, 0, 0, " ") -- just a spacer
-  GuiText(gui, 0, 0, "----Active connections (click to close)----")
+  GuiText(gui, 0, 0, " ") -- 间隔符
+  GuiText(gui, 0, 0, "----活跃连接（点击关闭）----")
   local conns = get_console_connections()
   local sorted_conns = {}
   for addr, client in pairs(conns) do
@@ -1084,7 +1084,7 @@ end
 
 enter_panel(menu_panel)
 
--- widgets
+-- 信息小部件
 local function StatsWidget(dispname, keyname, extra_pad)
   local width = math.ceil(#dispname * 0.9) + (extra_pad or 3)
   return {
@@ -1166,7 +1166,7 @@ function _cheat_gui_main()
     end
   end
 
-  wake_up_waiting_threads(1) -- from coroutines.lua
+  wake_up_waiting_threads(1) -- 来自 coroutines.lua
   if console_connected and _socket_update then _socket_update() end
 end
 

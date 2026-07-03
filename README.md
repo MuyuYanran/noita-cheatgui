@@ -1,47 +1,43 @@
-![Screenshot of the cheat menu as it appears in Noita](/screenshot.jpg?raw=true)
+![作弊菜单在 Noita 中的截图](/screenshot.jpg?raw=true)
 
-# Noita Cheat GUI
-A basic in-game cheat menu. Note: if you just want to see the alchemy recipes without all the other cheat functionality, [there is a mod for that](https://github.com/probable-basilisk/alchemyrecipes).
+# Noita Cheat GUI（作弊菜单）
+一个基础的游戏内作弊菜单。注意：如果你只想查看炼金术配方而不想要其他作弊功能，[这里有专门的模组](https://github.com/probable-basilisk/alchemyrecipes)。
 
-## Installation
+## 安装
 
-You can either download the mod manually or clone this Git repo into the Noita `mods` sub-directory.
+你可以手动下载模组，或者将此 Git 仓库克隆到 Noita 的 `mods` 子目录中。
 
-### (Recommended: opt-in to the Steam beta branch of Noita)
-Cheatgui is developed against, and really only tested with, the beta branch. It'll _probably_ work with the non-beta,
-but it's not guaranteed.
+### （推荐：选择加入 Noita 的 Steam beta 分支）
+Cheatgui 是针对 beta 分支开发的，基本上也只在 beta 分支上测试过。它*可能*也能在非 beta 版本上运行，但不保证。
 
-### Download manually
+### 手动下载
 
-[Download the release .zip](https://github.com/probable-basilisk/cheatgui/releases/download/v1.3.0/cheatgui_v1_3_0_beta.zip), 
-and extract into your `Noita/mods/` directory, renaming the folder to just `cheatgui`.
+[下载 release .zip 文件](https://github.com/probable-basilisk/cheatgui/releases/download/v1.3.0/cheatgui_v1_3_0_beta.zip)，
+解压到你的 `Noita/mods/` 目录中，将文件夹重命名为 `cheatgui`。
 
-**IMPORTANT**: The naming of the installation directory matters-- **this README should end up in `Noita/mods/cheatgui/README.md`**.
+**重要**：安装目录的命名很重要——**本 README 文件的路径最终应该是 `Noita/mods/cheatgui/README.md`**。
 
-### (or) Clone the Git repo
+### （或）克隆 Git 仓库
 
-You can git clone this repo directly into mods:
+你可以直接通过 git clone 将此仓库克隆到 mods 目录：
 
 ```
-cd {your Noita install dir}/mods/
+cd {你的 Noita 安装目录}/mods/
 git clone https://github.com/probable-basilisk/cheatgui.git
 ```
 
-**IMPORTANT**: You will need to get the `pollnet.dll` binary from the [release zip](https://github.com/probable-basilisk/cheatgui/releases/download/v1.3.0/cheatgui_v1_3_0_beta.zip), located in `bin/pollnet.dll`. You should copy this file to `Noita/mods/cheatgui/bin/pollnet.dll`.
+**重要**：你需要从 [release zip 文件](https://github.com/probable-basilisk/cheatgui/releases/download/v1.3.0/cheatgui_v1_3_0_beta.zip)中获取 `pollnet.dll` 二进制文件，该文件位于 `bin/pollnet.dll`。你应该将此文件复制到 `Noita/mods/cheatgui/bin/pollnet.dll`。
 
-### Enable the mod in Noita
+### 在 Noita 中启用模组
 
-Enable the 'cheatgui' mod through the in-game pause menu.
+通过游戏内的暂停菜单启用 'cheatgui' 模组。
 
-You will be prompted that "This mod has requested extra privileges." – see the following section 'Note about scary warnings' for details.
+系统会提示你"该模组已请求额外权限"——详细信息请参见下一节"关于警告提示的说明"。
 
-#### Note about scary warnings
+#### 关于警告提示的说明
 
-Cheatgui needs unsafe access to allow typing, and to enable the web console. If the warnings bother you, get the Steam workshop version, although
-you will obviously miss out on the type-to-filter and webconsole functionality.
+Cheatgui 需要不安全访问权限以支持键盘输入和启用 Web 控制台。如果这些警告让你感到困扰，可以获取 Steam 创意工坊版本，但你将无法使用键盘输入过滤和 Web 控制台功能。
 
-## Note about paths
+## 关于路径的说明
 
-Right now I'm having the mod put all its files into the global `data/hax/`
-path rather than into the mod-specific path, both because I'm lazy, and
-also because I might want to cross-load some of these files from other things.
+目前我将模组的所有文件放在全局 `data/hax/` 路径下，而不是模组专属路径中。一方面是因为我比较懒，另一方面也是因为我可能想要从其他项目中交叉加载这些文件。

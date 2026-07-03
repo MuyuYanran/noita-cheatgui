@@ -5,7 +5,7 @@ local get_name = function(mat)
 end
 
 if not DebugGetIsDevBuild() then
-  -- Dev build likes to complain about translations
+  -- 开发版本会对翻译发出警告，所以仅在正式版中使用本地化名称
   get_name = function(mat)
     local n = GameTextGet("$mat_" .. mat)
     if n and n ~= "" then return n else return "[" .. mat .. "]" end

@@ -55,7 +55,7 @@ end
 function hack_update_keys()
   local keys = _SDL.SDL_GetKeyboardState(nil)
   local pressed = {}
-  -- start at scancode 1 because we don't care about "UNKNOWN"
+  -- 从扫描码 1 开始，因为我们不关心"UNKNOWN"
   for scancode = 1, 284 do 
     if keys[scancode] > 0 and prev_state[scancode] <= 0 then
       pressed[#pressed+1] = code_to_a[scancode]

@@ -63,7 +63,7 @@ end
 spawn_item = spawn_entity
 
 function empty_container_of_materials(idx)
-  for _ = 1, 1000 do -- avoid infinite loop
+  for _ = 1, 1000 do -- 避免无限循环
     local material = GetMaterialInventoryMainMaterial(idx)
     if material <= 0 then break end
     local matname = CellFactory_GetName(material)
@@ -77,7 +77,7 @@ function spawn_potion(material, quantity, kind)
   local entity
   if kind == nil or kind == "potion" then 
     entity = EntityLoad("data/entities/items/pickup/potion_empty.xml", x, y)
-  else -- kind == "pouch"
+  else -- 类型是"pouch"（粉末袋）
     entity = EntityLoad("data/entities/items/pickup/powder_stash.xml", x, y)
     empty_container_of_materials(entity)
     quantity = quantity * 1.5

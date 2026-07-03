@@ -41,7 +41,7 @@ local MOCKED_FUNCTIONS = {
   "GameTriggerMusicEvent",
   "EntityLoad",
   "EntityRemoveIngestionStatusEffect",
-  "print", -- stop fungal_shift from spamming the log!!!
+  "print", -- 阻止 fungal_shift 刷屏日志！！！
 }
 
 local _fungal_iteration = 0
@@ -56,16 +56,16 @@ local function load_fungal_env()
 
   for _, v in ipairs(MOCKED_FUNCTIONS) do
     fungal_env[v] = function(...)
-      -- haha do nothing
+      -- 哈哈，什么都不做
     end
   end
 
   fungal_env.GlobalsGetValue = function(v, ...)
     if v == "fungal_shift_last_frame" then
-      -- force it to always give an answer
+      -- 强制它始终返回一个答案
       return -10000
     elseif v == "fungal_shift_iteration" then
-      -- allow us to manipulate the iteration
+      -- 允许我们操控迭代次数
       return tostring(_fungal_iteration)
     else
       return GlobalsGetValue(v, ...)

@@ -1,23 +1,23 @@
 dofile_once("data/hax/lib/pollnet.lua")
 dofile_once("data/scripts/lib/coroutines.lua")
 
--- this empty table is used as a special value that will suppress
--- printing any kind of "RES>" value (normally "[no value]" would print)
+-- 这个空表作为特殊值，用于抑制打印任何类型的"RES>"值
+-- （正常情况下，"[no value]"也会被打印出来）
 local UNPRINTABLE_RESULT = {}
 
--- (from http://lua-users.org/wiki/SplitJoin)
+-- （来自 http://lua-users.org/wiki/SplitJoin）
 local strfind = string.find
 local tinsert = table.insert
 local strsub = string.sub
 local function strsplit(text, delimiter)
   local list = {}
   local pos = 1
-  if strfind("", delimiter, 1) then -- this would result in endless loops
+  if strfind("", delimiter, 1) then -- 分隔符匹配空字符串会导致无限循环
     error("Delimiter matches empty string!")
   end
   while 1 do
     local first, last = strfind(text, delimiter, pos)
-    if first then -- found?
+    if first then -- 找到了？
       tinsert(list, strsub(text, pos, first-1))
       pos = last+1
     else
@@ -30,7 +30,7 @@ end
 
 local function is_localhost(addr)
   local parts = strsplit(addr, ":")
-  return parts[1] == "127.0.0.1" -- IPV6?
+  return parts[1] == "127.0.0.1" -- 仅允许 IPv4 本地地址，暂不考虑 IPv6？
 end
 
 local function reload_utils(console_env)
@@ -56,7 +56,7 @@ local function reload_help(fn)
   f:close()
   if not res then error("Couldn't read " .. fn) end
   _help_info = {}
-  res = res:gsub("\r", "") -- get rid of horrible carriage returns
+  res = res:gsub("\r", "") -- 去除烦人的 Windows 回车符
   local lines = strsplit(res, "\n")
   for _, line in ipairs(lines) do
     local paren_idx = line:find("%(")
@@ -105,7 +105,7 @@ local function make_complete(console_env)
   return function(s)
     local opts = {}
 
-    local parts = strsplit(s, "%.") -- strsplit takes a pattern, so have to escape "."
+    local parts = strsplit(s, "%.") -- strsplit 接受的是模式匹配，所以需要转义 "."
     local cur = console_env
     local prefix = ""
     for idx = 1, (#parts) - 1 do
@@ -175,8 +175,8 @@ local function make_console_env(client)
   function console_env.dofile(fn)
     local s = loadfile(fn)
     if type(s) == 'string' then
-      -- work around Noita's broken loadfile that returns error
-      -- message as first argument rather than as second
+      -- 绕过 Noita 有问题的 loadfile，它把错误信息作为第一个返回值
+      -- 而不是作为第二个返回值返回
       error(fn .. ": " .. s)
     end
     setfenv(s, console_env)
@@ -188,7 +188,7 @@ local function make_console_env(client)
     return UNPRINTABLE_RESULT
   end
 
-  -- Hmm maybe it's just better to use regular async for this?
+  -- 嗯，也许直接用常规的异步方式更好？
   --[[
   console_env._persistent_funcs = {}
 
@@ -210,7 +210,7 @@ local function make_console_env(client)
 
   console_env.complete = make_complete(console_env)
   console_env.add_persistent_func = add_persistent_func
-  console_env.set_persistent_func = add_persistent_func -- alias
+  console_env.set_persistent_func = add_persistent_func -- 别名
   console_env.remove_persistent_func = remove_persistent_func
   console_env.strinfo = strinfo
   console_env.help_str = help_str
@@ -229,13 +229,13 @@ local function _collect(happy, ...)
   end
 end
 
-local SCRATCH_SIZE = 1000000 -- might as well have a safe meg of space
+local SCRATCH_SIZE = 1000000 -- 预留 1MB 的安全缓冲空间
 local ws_server_socket = nil
 local http_server = nil
 local ws_clients = {}
 
 local TOKEN_FN = "mods/cheatgui/token.json"
-local TOKEN_EXPIRATION = 6*3600 -- tokens expire after six hours
+local TOKEN_EXPIRATION = 6*3600 -- token 在六小时后过期
 
 local function read_raw_file(filename)
   local f, err = io.open(filename)
@@ -366,11 +366,11 @@ local function _handle_client_message(client, msg)
   client.stat_in = (client.stat_in or 0) + 1
   local f, err = nil, nil
   if not msg:find("\n") then
-    -- if this is a single line, try putting "return " in front
-    -- (convenience to allow us to inspect values)
+    -- 如果是单行代码，尝试在前面加上 "return "
+    -- （方便我们直接查看表达式的值）
     f, err = loadstring("return " .. msg)
   end
-  if not f then -- multiline, or not an expression
+  if not f then -- 多行代码，或不是表达式
     f, err = loadstring(msg)
     if not f then
       client:send("ERR> Parse error: " .. tostring(err))
