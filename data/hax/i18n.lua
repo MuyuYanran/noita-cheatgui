@@ -185,6 +185,10 @@ _i18n = {
             -- ====== Title bar ======
             title_version = "cheatgui %s",
             title_no_keyboard_suffix = "S",
+
+            -- ====== Entity name translations (override game localization) ======
+            -- Keys: lowercase entity ID. e.g. action_light_bullet = "Spark Bolt"
+            entities = {},
         },
 
         zh = {
@@ -366,6 +370,10 @@ _i18n = {
             settings_language = "语言:",
             lang_en = "English",
             lang_zh = "中文",
+
+            -- ====== Entity name translations (override game localization) ======
+            -- Keys: lowercase entity ID. e.g. action_light_bullet = "火花弹"
+            entities = {},
         },
     },
 }
@@ -376,6 +384,26 @@ _i18n = {
 function _i18n.t(self, key)
     local translations = self.translations[self.language] or self.translations["en"]
     return translations[key] or (self.translations["en"] and self.translations["en"][key]) or key
+end
+
+-- Look up an entity name in i18n entities table.
+-- key_prefix: e.g. "action_" for spells, "perk_" for perks, "material_" for materials
+-- Returns nil if not found (caller should fall back to game ui_name).
+function _i18n.t_entity(self, id, key_prefix)
+    local lang_t = self.translations[self.language]
+    local en_t = self.translations["en"]
+    -- Try current language -> English -> nil
+    if lang_t and lang_t.entities then
+        local id_key = (key_prefix or "") .. id:lower()
+        local name = lang_t.entities[id_key]
+        if name then return name end
+    end
+    if en_t and en_t.entities then
+        local id_key = (key_prefix or "") .. id:lower()
+        local name = en_t.entities[id_key]
+        if name then return name end
+    end
+    return nil
 end
 
 -- Convenience: translated format string + arguments

@@ -15,6 +15,11 @@ dofile_once("data/hax/i18n.lua")
 local function T(key) return _i18n:t(key) end
 local function TF(key, ...) return _i18n:tf(key, ...) end
 
+-- 延迟求值：如果 v 是函数则调用它，否则直接返回
+local function resolve_str(v)
+  if type(v) == "function" then return v() else return v end
+end
+
 local CHEATGUI_VERSION = "1.5.0"
 local CHEATGUI_TITLE = TF("title_version", CHEATGUI_VERSION)
 local console_connected = false
@@ -95,6 +100,8 @@ local function Panel(options)
   if not options.name then
     options.name = options[1]
   end
+  -- 保存原始 name 引用（可能是函数），用于动态解析
+  options._name_src = options.name
   if not options.func then
     options.func = options[2]
   end
@@ -159,7 +166,7 @@ local function breadcrumbs(x, y)
     hide_gui()
   end
   for idx, panel in ipairs(panel_stack) do
-    if GuiButton( gui, 0, 0, panel.name .. ">", next_id()) then
+    if GuiButton( gui, 0, 0, resolve_str(panel._name_src) .. ">", next_id()) then
       jump_back_panel(idx)
     end
   end
@@ -291,11 +298,11 @@ local function create_radio(title, options, default, x_spacing)
   }
   return function(xpos, ypos)
     GuiLayoutBeginHorizontal(gui, xpos, ypos)
-    GuiText(gui, 0, 0, title)
+    GuiText(gui, 0, 0, resolve_str(title))
     GuiLayoutEnd(gui)
     GuiLayoutBeginHorizontal(gui, xpos+(x_spacing or 12), ypos)
     for idx, option in ipairs(options) do
-      local text = option[1]
+      local text = resolve_str(option[1])
       if idx == wrapper.index then text = "[" .. text .. "]" end
       if GuiButton( gui, 0, 0, text, next_id() ) then
         wrapper.index = idx
@@ -320,8 +327,8 @@ local function alphabetize(options, do_it)
   return sorted
 end
 
-local alphabetize_widget, alphabetize_val = create_radio(T("alphabetize"), {
-  {T("yes"), true}, {T("no"), false}
+local alphabetize_widget, alphabetize_val = create_radio(function() return T("alphabetize") end, {
+  {function() return T("yes") end, true}, {function() return T("no") end, false}
 }, 2, 16)
 
 local function breakup_pages(options, page_size)
@@ -471,7 +478,7 @@ local function create_numerical(title, increments, default, kind)
 
   return function(xpos, ypos)
     GuiLayoutBeginHorizontal(gui, xpos, ypos)
-      GuiText(gui, 0, 0, title)
+      GuiText(gui, 0, 0, resolve_str(title))
     GuiLayoutEnd(gui)
     GuiLayoutBeginHorizontal(gui, xpos + 12, ypos)
       for idx = #increments, 1, -1 do
@@ -497,22 +504,22 @@ local function create_numerical(title, increments, default, kind)
   end, wrapper
 end
 
-local localization_widget, localization_val = create_radio(T("show_localized_names"), {
-  {T("yes"), true}, {T("no"), false}
-}, 2, 16)
+local localization_widget, localization_val = create_radio(function() return T("show_localized_names") end, {
+  {function() return T("yes") end, true}, {function() return T("no") end, false}
+}, 1, 16)
 
-local shuffle_widget, shuffle_val = create_radio(T("wb_shuffle"), {
-  {T("yes"), true}, {T("no"), false}
+local shuffle_widget, shuffle_val = create_radio(function() return T("wb_shuffle") end, {
+  {function() return T("yes") end, true}, {function() return T("no") end, false}
 }, 2)
 
-local mana_widget, mana_val = create_numerical(T("wb_mana"), {50, 500}, 300, 'int')
-local mana_rec_widget, mana_rec_val = create_numerical(T("wb_mana_recharge"), {10, 100}, 100, 'int')
-local slots_widget, slots_val = create_numerical(T("wb_slots"), {1, 5}, 5, 'int')
-local multi_widget, multi_val = create_numerical(T("wb_multicast"), {1}, 1, 'int')
-local reload_widget, reload_val = create_numerical(T("wb_reload"), {1, 10}, 30, 'frame')
-local delay_widget, delay_val = create_numerical(T("wb_delay"), {1, 10}, 30, 'frame')
-local spread_widget, spread_val = create_numerical(T("wb_spread"), {0.1, 1}, 0.0, 'float')
-local speed_widget, speed_val = create_numerical(T("wb_speed"), {0.01, 0.1}, 1.0, 'float')
+local mana_widget, mana_val = create_numerical(function() return T("wb_mana") end, {50, 500}, 300, 'int')
+local mana_rec_widget, mana_rec_val = create_numerical(function() return T("wb_mana_recharge") end, {10, 100}, 100, 'int')
+local slots_widget, slots_val = create_numerical(function() return T("wb_slots") end, {1, 5}, 5, 'int')
+local multi_widget, multi_val = create_numerical(function() return T("wb_multicast") end, {1}, 1, 'int')
+local reload_widget, reload_val = create_numerical(function() return T("wb_reload") end, {1, 10}, 30, 'frame')
+local delay_widget, delay_val = create_numerical(function() return T("wb_delay") end, {1, 10}, 30, 'frame')
+local spread_widget, spread_val = create_numerical(function() return T("wb_spread") end, {0.1, 1}, 0.0, 'float')
+local speed_widget, speed_val = create_numerical(function() return T("wb_speed") end, {0.01, 0.1}, 1.0, 'float')
 
 --local always_cast_choice = nil
 local MAX_ALWAYS_CASTS=10 -- 最多10个始终施法法术
@@ -540,7 +547,7 @@ local builder_widgets = {
   {speed_widget, speed_val}
 }
 
-builder_panel = Panel{T("panel_wand_builder"), function()
+builder_panel = Panel{function() return T("panel_wand_builder") end, function()
   breadcrumbs(1, 0)
 
   for idx, widget in ipairs(builder_widgets) do
@@ -583,8 +590,8 @@ builder_panel = Panel{T("panel_wand_builder"), function()
   GuiLayoutEnd(gui)
 end}
 
-local xpos_widget, xpos_val = create_numerical(T("tp_x"), {100, 1000, 10000}, 0, 'int')
-local ypos_widget, ypos_val = create_numerical(T("tp_y"), {100, 1000, 10000}, 0, 'int')
+local xpos_widget, xpos_val = create_numerical(function() return T("tp_x") end, {100, 1000, 10000}, 0, 'int')
+local ypos_widget, ypos_val = create_numerical(function() return T("tp_y") end, {100, 1000, 10000}, 0, 'int')
 
 local SPECIAL_LOCATIONS = {
   ["$biome_lava"] = {x=2300}
@@ -628,7 +635,7 @@ local function find_quick_teleports()
   return quick_teleports
 end
 
-teleport_panel = Panel{T("panel_teleport"), function()
+teleport_panel = Panel{function() return T("panel_teleport") end, function()
   xpos_widget(1, 12)
   ypos_widget(1, 16)
 
@@ -658,10 +665,10 @@ teleport_panel = Panel{T("panel_teleport"), function()
   GuiLayoutEnd(gui)
 end}
 
-local cur_hp_widget, cur_hp_val = create_numerical(T("hp_hp"), {1, 4}, 4, 'hearts')
-local max_hp_widget, max_hp_val = create_numerical(T("hp_max_hp"), {1, 4}, 4, 'hearts')
+local cur_hp_widget, cur_hp_val = create_numerical(function() return T("hp_hp") end, {1, 4}, 4, 'hearts')
+local max_hp_widget, max_hp_val = create_numerical(function() return T("hp_max_hp") end, {1, 4}, 4, 'hearts')
 
-health_panel = Panel{T("panel_health"), function()
+health_panel = Panel{function() return T("panel_health") end, function()
   cur_hp_widget(1, 12)
   max_hp_widget(1, 16)
 
@@ -689,9 +696,9 @@ health_panel = Panel{T("panel_health"), function()
   GuiLayoutEnd(gui)
 end}
 
-local money_widget, money_val = create_numerical(T("gold_label"), {10, 100, 1000}, 0, 'int')
+local money_widget, money_val = create_numerical(function() return T("gold_label") end, {10, 100, 1000}, 0, 'int')
 
-money_panel = Panel{T("panel_gold"), function()
+money_panel = Panel{function() return T("panel_gold") end, function()
   money_widget(1, 12)
   breadcrumbs(1, 0)
 
@@ -721,7 +728,11 @@ end}
 
 -- 一次性构建按钮列表，避免每帧重复构建
 local function localized_name(thing)
-  if localization_val.value then return thing.ui_name else return thing.id end
+  if not localization_val.value then return thing.id end
+  -- 优先查 i18n 实体翻译 → 游戏 ui_name → 原始 id
+  local i18n_name = _i18n:t_entity(thing.id)
+  if i18n_name then return i18n_name end
+  return thing.ui_name or thing.id
 end
 
 local function spawn_spell_button(card)
@@ -777,9 +788,9 @@ for idx, perk in ipairs(perk_list) do
   }
 end
 
-local quantity_widget, quantity_val = create_numerical(T("flask_quantity"), {100, 1000}, 1000, 'mills')
-local container_widget, container_val = create_radio(T("flask_container"), {
-  {T("flask_potion"), "potion"}, {T("flask_pouch"), "pouch"}
+local quantity_widget, quantity_val = create_numerical(function() return T("flask_quantity") end, {100, 1000}, 1000, 'mills')
+local container_widget, container_val = create_radio(function() return T("flask_container") end, {
+  {function() return T("flask_potion") end, "potion"}, {function() return T("flask_pouch") end, "pouch"}
 }, 1)
 
 local function spawn_potion_button(potion)
@@ -808,7 +819,7 @@ for i = 1, 5 do
     wrap_spawn("data/entities/items/wand_level_0" .. i .. ".xml")
   }
 end
-table.insert(wand_options, {T("wand_haxx"), wrap_spawn("data/hax/wand_hax.xml")})
+table.insert(wand_options, {function() return T("wand_haxx") end, wrap_spawn("data/hax/wand_hax.xml")})
 
 local tourist_mode_on = false
 local function toggle_tourist_mode()
@@ -884,7 +895,7 @@ local function flask_panel_func()
   _flask_base()
 end
 
-local gui_grid_ref_panel = Panel{T("panel_gui_grid_ref"), function()
+local gui_grid_ref_panel = Panel{function() return T("panel_gui_grid_ref") end, function()
   breadcrumbs(1, 0)
   for row = 0, 100, 10 do
     for col = 0, 100, 10 do
@@ -917,17 +928,17 @@ for idx, item in ipairs(spawn_list) do
   }
 end
 
-always_cast_panel = Panel{T("panel_always_cast"), wrap_localized(wrap_paginate(T("spell_select_short"), always_cast_options))}
-cards_panel = Panel{T("panel_spells"), wrap_localized(wrap_paginate(T("spell_select"), spell_options))}
-perk_panel = Panel{T("panel_perks"), wrap_localized(wrap_paginate(T("perk_select"), perk_options))}
-flasks_panel = Panel{T("panel_flasks"), flask_panel_func}
-spawn_panel = Panel{T("panel_items"), wrap_localized(wrap_paginate(T("item_select"), spawn_options))}
+always_cast_panel = Panel{function() return T("panel_always_cast") end, wrap_localized(wrap_paginate(T("spell_select_short"), always_cast_options))}
+cards_panel = Panel{function() return T("panel_spells") end, wrap_localized(wrap_paginate(T("spell_select"), spell_options))}
+perk_panel = Panel{function() return T("panel_perks") end, wrap_localized(wrap_paginate(T("perk_select"), perk_options))}
+flasks_panel = Panel{function() return T("panel_flasks") end, flask_panel_func}
+spawn_panel = Panel{function() return T("panel_items") end, wrap_localized(wrap_paginate(T("item_select"), spawn_options))}
 
-wands_panel = Panel{T("panel_wands"), function()
+wands_panel = Panel{function() return T("panel_wands") end, function()
   grid_panel(T("wand_select"), wand_options)
 end}
 
-info_panel = Panel{T("panel_widgets"), function()
+info_panel = Panel{function() return T("panel_widgets") end, function()
   breadcrumbs(1, 0)
   GuiLayoutBeginVertical(gui, 1, 11)
   for idx, winfo in ipairs(_all_info_widgets) do
@@ -956,7 +967,7 @@ local function choose_fungal_material(mat)
   prev_panel()
 end
 
-local fungal_material_panel = Panel{T("panel_shift_material"), 
+local fungal_material_panel = Panel{function() return T("panel_shift_material") end, 
   wrap_localized(wrap_paginate(T("material_select"), potion_options, nil, choose_fungal_material))}
 
 local function predict_nth_shift(n)
@@ -969,7 +980,7 @@ local function predict_nth_shift(n)
   end
 end
 
-local fungal_panel = Panel{T("panel_fungal"), function()
+local fungal_panel = Panel{function() return T("panel_fungal") end, function()
   breadcrumbs(1, 0)
   GuiLayoutBeginVertical(gui, 1, 12)
   GuiText(gui, 0, 0, T("fungal_next_shift") .. predict_nth_shift(0))
@@ -991,7 +1002,7 @@ local fungal_panel = Panel{T("panel_fungal"), function()
 end}
 
 
-console_panel = Panel{T("panel_console"), function()
+console_panel = Panel{function() return T("panel_console") end, function()
   breadcrumbs(1, 0)
   GuiLayoutBeginVertical(gui, 1, 11)
   if console_connected then
@@ -1026,11 +1037,11 @@ console_panel = Panel{T("panel_console"), function()
   GuiLayoutEnd(gui)
 end}
 
-local lang_widget, lang_val = create_radio(T("settings_language"), {
-  {T("lang_en"), "en"}, {T("lang_zh"), "zh"}
+local lang_widget, lang_val = create_radio(function() return T("settings_language") end, {
+  {function() return T("lang_en") end, "en"}, {function() return T("lang_zh") end, "zh"}
 }, (_i18n.language == "zh" and 2 or 1))
 
-local settings_panel = Panel{T("panel_settings"), function()
+local settings_panel = Panel{function() return T("panel_settings") end, function()
   breadcrumbs(1, 0)
   GuiLayoutBeginVertical(gui, 1, 11)
   lang_widget(1, 11)
@@ -1051,7 +1062,7 @@ if _keyboard_present then table.insert(main_panels, console_panel) end
 
 local function draw_main_panels()
   for idx, panel in ipairs(main_panels) do
-    if GuiButton( gui, 0, 0, panel.name .. "->", next_id() ) then
+    if GuiButton( gui, 0, 0, resolve_str(panel._name_src) .. "->", next_id() ) then
       enter_panel(panel)
     end
   end
@@ -1065,21 +1076,21 @@ menu_panel = Panel{CHEATGUI_TITLE, function()
   GuiLayoutEnd(gui)
 end}
 
-register_cheat_button(T("extra_edit_wands"), function()
+register_cheat_button(function() return T("extra_edit_wands") end, function()
   spawn_perk("EDIT_WANDS_EVERYWHERE", get_player())
 end)
 
-register_cheat_button(T("extra_spell_refresh"), function()
+register_cheat_button(function() return T("extra_spell_refresh") end, function()
   GameRegenItemActionsInPlayer(get_player())
 end)
 
-register_cheat_button(T("extra_full_heal"), function() quick_heal() end)
+register_cheat_button(function() return T("extra_full_heal") end, function() quick_heal() end)
 
-register_cheat_button(T("extra_end_trip"), function()
+register_cheat_button(function() return T("extra_end_trip") end, function()
   EntityRemoveIngestionStatusEffect(get_player(), "TRIP" )
 end)
 
-register_cheat_button(T("extra_reset_timer"), function()
+register_cheat_button(function() return T("extra_reset_timer") end, function()
   GlobalsSetValue("fungal_shift_last_frame", "-1000000")
 end)
 
@@ -1092,7 +1103,7 @@ register_cheat_button(function()
   end
 end, toggle_tourist_mode)
 
-register_cheat_button(T("extra_spawn_orbs"), function()
+register_cheat_button(function() return T("extra_spawn_orbs") end, function()
   local x, y = get_player_pos()
   for i = 0, 13 do
     EntityLoad(("data/entities/items/orbs/orb_%02d.xml"):format(i), x+(i*15), y - (i*5))
@@ -1100,7 +1111,7 @@ register_cheat_button(T("extra_spawn_orbs"), function()
 end)
 
 if _keyboard_present then
-  register_cheat_button(T("extra_open_console"), function()
+  register_cheat_button(function() return T("extra_open_console") end, function()
     open_console()
     enter_panel(console_panel)
   end)
