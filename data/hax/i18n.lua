@@ -214,6 +214,7 @@ _i18n = {
             extra_reset_timer = "[reset fungal shift timer]",
             extra_spawn_orbs = "[spawn orbs]",
             extra_open_console = "[open console]",
+            extra_unlock_progress = "[unlock all progress]",
 
             -- ====== Tourist mode ======
             tourist_enable_fmt = "[enable %s]",
@@ -452,6 +453,7 @@ _i18n = {
             extra_reset_timer = "[重置真菌转换计时]",
             extra_spawn_orbs = "[生成魔球]",
             extra_open_console = "[打开控制台]",
+            extra_unlock_progress = "[解锁所有进展]",
 
             -- ====== Tourist mode ======
             tourist_enable_fmt = "[启用 %s]",

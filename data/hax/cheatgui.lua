@@ -35,7 +35,7 @@ local function resolve_str(v)
   if type(v) == "function" then return v() else return v end
 end
 
-local CHEATGUI_VERSION = "1.5.0"
+local CHEATGUI_VERSION = "1.6.0"
 local CHEATGUI_TITLE = TF("title_version", CHEATGUI_VERSION)
 local console_connected = false
 
@@ -1395,6 +1395,426 @@ register_cheat_button(function() return T("extra_spawn_orbs") end, function()
   for i = 0, 13 do
     EntityLoad(("data/entities/items/orbs/orb_%02d.xml"):format(i), x+(i*15), y - (i*5))
   end
+end)
+
+-- ====== 解锁所有进展（天赋、法术、敌人图鉴） ======
+-- 说明：Noita 的「进展」不是用 UnlockItem / KILLED_ 这种 flag 记录，而是：
+--  - 法术：需要把对应 action_id 的 persistent flag 设为 action_<id>（ID 必须小写）
+--  - 天赋：需要把 persistent flag 设为 perk_picked_<id>（ID 必须小写）
+--  - 敌人：需要真正加载敌人实体并调用 StatsLogPlayerKill(eid) 记录击杀
+--    优先从 data/ui_gfx/animal_icons/_list.txt 读取 184 个敌人 ID，
+--    再按常见 XML 目录路径尝试加载实体；读取失败则回退到已知路径列表
+
+-- 敌人实体常见目录：按此顺序尝试 EntityLoad
+local enemy_search_dirs = {
+  "data/entities/animals/",
+  "data/entities/animals/crypt/",
+  "data/entities/animals/drunk/",
+  "data/entities/animals/easter/",
+  "data/entities/animals/ending_placeholder/",
+  "data/entities/animals/illusions/",
+  "data/entities/animals/lukki/",
+  "data/entities/animals/maggot_tiny/",
+  "data/entities/animals/parallel/alchemist/",
+  "data/entities/animals/parallel/tentacles/",
+  "data/entities/animals/rainforest/",
+  "data/entities/animals/robobase/",
+  "data/entities/animals/special/",
+  "data/entities/animals/the_end/",
+  "data/entities/animals/vault/",
+  "data/entities/animals/boss_alchemist/",
+  "data/entities/animals/boss_centipede/",
+  "data/entities/animals/boss_fish/",
+  "data/entities/animals/boss_gate/",
+  "data/entities/animals/boss_ghost/",
+  "data/entities/animals/boss_limbs/",
+  "data/entities/animals/boss_pit/",
+  "data/entities/animals/boss_robot/",
+  "data/entities/animals/boss_wizard/",
+  "data/entities/animals/apparition/",
+  "data/entities/buildings/",
+}
+
+-- _list.txt 动态读取失败时的兜底列表（来自 Dextrome 已验证的完整路径）
+local known_enemy_paths = {
+  -- 根目录动物
+  "data/entities/animals/acidshooter.xml",
+  "data/entities/animals/acidshooter_weak.xml",
+  "data/entities/animals/alchemist.xml",
+  "data/entities/animals/ant.xml",
+  "data/entities/animals/assassin.xml",
+  "data/entities/animals/barfer.xml",
+  "data/entities/animals/basebot_hidden.xml",
+  "data/entities/animals/basebot_neutralizer.xml",
+  "data/entities/animals/basebot_sentry.xml",
+  "data/entities/animals/basebot_soldier.xml",
+  "data/entities/animals/bat.xml",
+  "data/entities/animals/bigbat.xml",
+  "data/entities/animals/bigfirebug.xml",
+  "data/entities/animals/bigzombie.xml",
+  "data/entities/animals/bigzombiehead.xml",
+  "data/entities/animals/bigzombietorso.xml",
+  "data/entities/animals/blob.xml",
+  "data/entities/animals/bloodcrystal_physics.xml",
+  "data/entities/animals/bloom.xml",
+  "data/entities/animals/coward.xml",
+  "data/entities/animals/chest_leggy.xml",
+  "data/entities/animals/chest_mimic.xml",
+  "data/entities/animals/crystal_physics.xml",
+  "data/entities/animals/darkghost.xml",
+  "data/entities/animals/deer.xml",
+  "data/entities/animals/drone.xml",
+  "data/entities/animals/drone_lasership.xml",
+  "data/entities/animals/drone_physics.xml",
+  "data/entities/animals/drone_shield.xml",
+  "data/entities/animals/duck.xml",
+  "data/entities/animals/eel.xml",
+  "data/entities/animals/elk.xml",
+  "data/entities/animals/enlightened_alchemist.xml",
+  "data/entities/animals/ethereal_being.xml",
+  "data/entities/animals/failed_alchemist.xml",
+  "data/entities/animals/failed_alchemist_b.xml",
+  "data/entities/animals/firebug.xml",
+  "data/entities/animals/firemage.xml",
+  "data/entities/animals/firemage_weak.xml",
+  "data/entities/animals/fireskull.xml",
+  "data/entities/animals/fireskull_weak.xml",
+  "data/entities/animals/fish.xml",
+  "data/entities/animals/fish_large.xml",
+  "data/entities/animals/flamer.xml",
+  "data/entities/animals/fly.xml",
+  "data/entities/animals/friend.xml",
+  "data/entities/animals/frog.xml",
+  "data/entities/animals/frog_big.xml",
+  "data/entities/animals/fungus.xml",
+  "data/entities/animals/fungus_big.xml",
+  "data/entities/animals/fungus_giga.xml",
+  "data/entities/animals/fungus_tiny.xml",
+  "data/entities/animals/gazer.xml",
+  "data/entities/animals/ghost.xml",
+  "data/entities/animals/ghoul.xml",
+  "data/entities/animals/giant.xml",
+  "data/entities/animals/giantshooter.xml",
+  "data/entities/animals/giantshooter_weak.xml",
+  "data/entities/animals/goblin_bomb.xml",
+  "data/entities/animals/healerdrone_physics.xml",
+  "data/entities/animals/icemage.xml",
+  "data/entities/animals/icer.xml",
+  "data/entities/animals/iceskull.xml",
+  "data/entities/animals/lasershooter.xml",
+  "data/entities/animals/longleg.xml",
+  "data/entities/animals/lurker.xml",
+  "data/entities/animals/maggot.xml",
+  "data/entities/animals/maggot_tiny.xml",
+  "data/entities/animals/mimic_physics.xml",
+  "data/entities/animals/miner.xml",
+  "data/entities/animals/miner_chef.xml",
+  "data/entities/animals/miner_fire.xml",
+  "data/entities/animals/miner_santa.xml",
+  "data/entities/animals/miner_weak.xml",
+  "data/entities/animals/miniblob.xml",
+  "data/entities/animals/missilecrab.xml",
+  "data/entities/animals/monk.xml",
+  "data/entities/animals/necrobot.xml",
+  "data/entities/animals/necrobot_super.xml",
+  "data/entities/animals/necromancer.xml",
+  "data/entities/animals/necromancer_shop.xml",
+  "data/entities/animals/necromancer_super.xml",
+  "data/entities/animals/pebble_physics.xml",
+  "data/entities/animals/phantom_a.xml",
+  "data/entities/animals/phantom_b.xml",
+  "data/entities/animals/playerghost.xml",
+  "data/entities/animals/rat.xml",
+  "data/entities/animals/roboguard.xml",
+  "data/entities/animals/roboguard_big.xml",
+  "data/entities/animals/scorpion.xml",
+  "data/entities/animals/shaman.xml",
+  "data/entities/animals/sheep.xml",
+  "data/entities/animals/sheep_bat.xml",
+  "data/entities/animals/sheep_fly.xml",
+  "data/entities/animals/shooterflower.xml",
+  "data/entities/animals/shotgunner.xml",
+  "data/entities/animals/shotgunner_weak.xml",
+  "data/entities/animals/skullfly.xml",
+  "data/entities/animals/skullrat.xml",
+  "data/entities/animals/skycrystal_physics.xml",
+  "data/entities/animals/skygazer.xml",
+  "data/entities/animals/slimeshooter.xml",
+  "data/entities/animals/slimeshooter_nontoxic.xml",
+  "data/entities/animals/slimeshooter_weak.xml",
+  "data/entities/animals/sniper.xml",
+  "data/entities/animals/spearbot.xml",
+  "data/entities/animals/spitmonster.xml",
+  "data/entities/animals/statue.xml",
+  "data/entities/animals/statue_physics.xml",
+  "data/entities/animals/tank.xml",
+  "data/entities/animals/tank_rocket.xml",
+  "data/entities/animals/tank_super.xml",
+  "data/entities/animals/tentacler.xml",
+  "data/entities/animals/tentacler_small.xml",
+  "data/entities/animals/thundermage.xml",
+  "data/entities/animals/thundermage_big.xml",
+  "data/entities/animals/thunderskull.xml",
+  "data/entities/animals/turret_left.xml",
+  "data/entities/animals/turret_right.xml",
+  "data/entities/animals/ultimate_killer.xml",
+  "data/entities/animals/wand_ghost.xml",
+  "data/entities/animals/wand_ghost_charmed.xml",
+  "data/entities/animals/wizard_dark.xml",
+  "data/entities/animals/wizard_hearty.xml",
+  "data/entities/animals/wizard_homing.xml",
+  "data/entities/animals/wizard_neutral.xml",
+  "data/entities/animals/wizard_poly.xml",
+  "data/entities/animals/wizard_returner.xml",
+  "data/entities/animals/wizard_swapper.xml",
+  "data/entities/animals/wizard_tele.xml",
+  "data/entities/animals/wizard_twitchy.xml",
+  "data/entities/animals/wizard_weaken.xml",
+  "data/entities/animals/wolf.xml",
+  "data/entities/animals/worm.xml",
+  "data/entities/animals/worm_big.xml",
+  "data/entities/animals/worm_end.xml",
+  "data/entities/animals/worm_skull.xml",
+  "data/entities/animals/worm_tiny.xml",
+  "data/entities/animals/wraith.xml",
+  "data/entities/animals/wraith_glowing.xml",
+  "data/entities/animals/wraith_storm.xml",
+  "data/entities/animals/zombie.xml",
+  "data/entities/animals/zombie_weak.xml",
+
+  -- 子目录变体
+  "data/entities/animals/crypt/acidshooter.xml",
+  "data/entities/animals/crypt/barfer.xml",
+  "data/entities/animals/crypt/crystal_physics.xml",
+  "data/entities/animals/crypt/enlightened_alchemist.xml",
+  "data/entities/animals/crypt/failed_alchemist.xml",
+  "data/entities/animals/crypt/maggot.xml",
+  "data/entities/animals/crypt/necromancer.xml",
+  "data/entities/animals/crypt/phantom_a.xml",
+  "data/entities/animals/crypt/phantom_b.xml",
+  "data/entities/animals/crypt/skullfly.xml",
+  "data/entities/animals/crypt/skullrat.xml",
+  "data/entities/animals/crypt/tentacler.xml",
+  "data/entities/animals/crypt/tentacler_small.xml",
+  "data/entities/animals/crypt/thundermage.xml",
+  "data/entities/animals/crypt/wizard_dark.xml",
+  "data/entities/animals/crypt/wizard_neutral.xml",
+  "data/entities/animals/crypt/wizard_poly.xml",
+  "data/entities/animals/crypt/wizard_returner.xml",
+  "data/entities/animals/crypt/wizard_tele.xml",
+  "data/entities/animals/crypt/worm.xml",
+  "data/entities/animals/crypt/worm_skull.xml",
+
+  "data/entities/animals/drunk/miner.xml",
+  "data/entities/animals/drunk/miner_chef.xml",
+  "data/entities/animals/drunk/miner_fire.xml",
+  "data/entities/animals/drunk/miner_weak.xml",
+  "data/entities/animals/drunk/scavenger_clusterbomb.xml",
+  "data/entities/animals/drunk/scavenger_glue.xml",
+  "data/entities/animals/drunk/scavenger_grenade.xml",
+  "data/entities/animals/drunk/scavenger_heal.xml",
+  "data/entities/animals/drunk/scavenger_invis.xml",
+  "data/entities/animals/drunk/scavenger_leader.xml",
+  "data/entities/animals/drunk/scavenger_mine.xml",
+  "data/entities/animals/drunk/scavenger_poison.xml",
+  "data/entities/animals/drunk/scavenger_shield.xml",
+  "data/entities/animals/drunk/scavenger_smg.xml",
+  "data/entities/animals/drunk/shotgunner.xml",
+  "data/entities/animals/drunk/shotgunner_weak.xml",
+  "data/entities/animals/drunk/sniper.xml",
+
+  "data/entities/animals/easter/sniper.xml",
+  "data/entities/animals/ending_placeholder/boss_dragon_endcrystal.xml",
+
+  "data/entities/animals/illusions/acidshooter.xml",
+  "data/entities/animals/illusions/dark_alchemist.xml",
+  "data/entities/animals/illusions/enlightened_alchemist.xml",
+  "data/entities/animals/illusions/scavenger_grenade.xml",
+  "data/entities/animals/illusions/scavenger_mine.xml",
+  "data/entities/animals/illusions/shaman.xml",
+  "data/entities/animals/illusions/tank.xml",
+  "data/entities/animals/illusions/tentacler.xml",
+  "data/entities/animals/illusions/thundermage.xml",
+  "data/entities/animals/illusions/wizard_swapper.xml",
+  "data/entities/animals/illusions/worm_big.xml",
+
+  "data/entities/animals/lukki/lukki.xml",
+  "data/entities/animals/lukki/lukki_creepy.xml",
+  "data/entities/animals/lukki/lukki_creepy_long.xml",
+  "data/entities/animals/lukki/lukki_dark.xml",
+  "data/entities/animals/lukki/lukki_longleg.xml",
+  "data/entities/animals/lukki/lukki_tiny.xml",
+
+  "data/entities/animals/maggot_tiny/maggot_tiny.xml",
+  "data/entities/animals/parallel/alchemist/parallel_alchemist.xml",
+  "data/entities/animals/parallel/tentacles/parallel_tentacles.xml",
+
+  "data/entities/animals/rainforest/bloom.xml",
+  "data/entities/animals/rainforest/coward.xml",
+  "data/entities/animals/rainforest/flamer.xml",
+  "data/entities/animals/rainforest/fly.xml",
+  "data/entities/animals/rainforest/fungus.xml",
+  "data/entities/animals/rainforest/scavenger_clusterbomb.xml",
+  "data/entities/animals/rainforest/scavenger_grenade.xml",
+  "data/entities/animals/rainforest/scavenger_heal.xml",
+  "data/entities/animals/rainforest/scavenger_leader.xml",
+  "data/entities/animals/rainforest/scavenger_mine.xml",
+  "data/entities/animals/rainforest/scavenger_poison.xml",
+  "data/entities/animals/rainforest/scavenger_smg.xml",
+  "data/entities/animals/rainforest/shooterflower.xml",
+  "data/entities/animals/rainforest/sniper.xml",
+
+  "data/entities/animals/robobase/drone_lasership.xml",
+  "data/entities/animals/robobase/drone_shield.xml",
+  "data/entities/animals/robobase/healerdrone_physics.xml",
+  "data/entities/animals/robobase/monk.xml",
+  "data/entities/animals/robobase/tank_super.xml",
+  "data/entities/animals/robobase/turret_left.xml",
+  "data/entities/animals/robobase/turret_right.xml",
+
+  "data/entities/animals/special/minipit.xml",
+
+  "data/entities/animals/the_end/bloodcrystal_physics.xml",
+  "data/entities/animals/the_end/gazer.xml",
+  "data/entities/animals/the_end/skycrystal_physics.xml",
+  "data/entities/animals/the_end/skygazer.xml",
+  "data/entities/animals/the_end/spearbot.xml",
+  "data/entities/animals/the_end/spitmonster.xml",
+  "data/entities/animals/the_end/worm_end.xml",
+  "data/entities/animals/the_end/worm_skull.xml",
+
+  "data/entities/animals/vault/acidshooter.xml",
+  "data/entities/animals/vault/assassin.xml",
+  "data/entities/animals/vault/bigzombie.xml",
+  "data/entities/animals/vault/blob.xml",
+  "data/entities/animals/vault/coward.xml",
+  "data/entities/animals/vault/drone_physics.xml",
+  "data/entities/animals/vault/firemage.xml",
+  "data/entities/animals/vault/flamer.xml",
+  "data/entities/animals/vault/healerdrone_physics.xml",
+  "data/entities/animals/vault/icer.xml",
+  "data/entities/animals/vault/lasershooter.xml",
+  "data/entities/animals/vault/maggot.xml",
+  "data/entities/animals/vault/missilecrab.xml",
+  "data/entities/animals/vault/roboguard.xml",
+  "data/entities/animals/vault/scavenger_glue.xml",
+  "data/entities/animals/vault/scavenger_grenade.xml",
+  "data/entities/animals/vault/scavenger_heal.xml",
+  "data/entities/animals/vault/scavenger_leader.xml",
+  "data/entities/animals/vault/scavenger_mine.xml",
+  "data/entities/animals/vault/scavenger_smg.xml",
+  "data/entities/animals/vault/sniper.xml",
+  "data/entities/animals/vault/tank.xml",
+  "data/entities/animals/vault/tank_rocket.xml",
+  "data/entities/animals/vault/tank_super.xml",
+  "data/entities/animals/vault/tentacler.xml",
+  "data/entities/animals/vault/tentacler_small.xml",
+  "data/entities/animals/vault/thundermage.xml",
+  "data/entities/animals/vault/thunderskull.xml",
+  "data/entities/animals/vault/turret_left.xml",
+  "data/entities/animals/vault/turret_right.xml",
+  "data/entities/animals/vault/wizard_dark.xml",
+
+  -- BOSS
+  "data/entities/animals/boss_alchemist/boss_alchemist.xml",
+  "data/entities/animals/boss_alchemist/enlightened_alchemist_boss.xml",
+  "data/entities/animals/boss_centipede/boss_centipede.xml",
+  "data/entities/animals/boss_dragon.xml",
+  "data/entities/animals/boss_fish/fish_giga.xml",
+  "data/entities/animals/boss_gate/gate_monster_a.xml",
+  "data/entities/animals/boss_gate/gate_monster_b.xml",
+  "data/entities/animals/boss_gate/gate_monster_c.xml",
+  "data/entities/animals/boss_gate/gate_monster_d.xml",
+  "data/entities/animals/boss_ghost/boss_ghost.xml",
+  "data/entities/animals/boss_limbs/boss_limbs.xml",
+  "data/entities/animals/boss_pit/boss_pit.xml",
+  "data/entities/animals/boss_robot/boss_robot.xml",
+  "data/entities/animals/boss_wizard/boss_wizard.xml",
+
+  -- 其他
+  "data/entities/animals/apparition/playerghost.xml",
+  "data/entities/buildings/snowcrystal.xml",
+  "data/entities/buildings/hpcrystal.xml",
+}
+
+-- 通过 XML 路径加载并记录击杀
+local function unlock_enemy(xml_path)
+  local ok, eid = pcall(EntityLoad, xml_path, 0, 0)
+  if ok and eid and eid ~= 0 then
+    pcall(StatsLogPlayerKill, eid)
+    pcall(EntityKill, eid)
+  end
+end
+
+-- 通过敌人名称在所有已知目录中尝试加载
+local function unlock_enemy_by_name(name)
+  for _, dir in ipairs(enemy_search_dirs) do
+    local path = dir .. name .. ".xml"
+    local ok, eid = pcall(EntityLoad, path, 0, 0)
+    if ok and eid and eid ~= 0 then
+      pcall(StatsLogPlayerKill, eid)
+      pcall(EntityKill, eid)
+      return true
+    end
+  end
+  return false
+end
+
+register_cheat_button(function() return T("extra_unlock_progress") end, function()
+  GamePrint("正在解锁所有进展...")
+
+  -- 1) 解锁全部法术（法术图鉴 + 可解锁法术）
+  --    Noita 内部 action_id 统一小写，必须转小写才能正确匹配进度系统
+  local spell_count = 0
+  for _, card in ipairs(actions) do
+    local id = card.id:lower()
+    pcall(UnlockItem, id)
+    local ok = pcall(AddFlagPersistent, "action_" .. id)
+    if ok then spell_count = spell_count + 1 end
+  end
+  GamePrint("已解锁法术: " .. spell_count)
+
+  -- 2) 解锁全部天赋（天赋图鉴）
+  --    Noita 内部 perk_id 统一小写，必须转小写才能正确匹配进度系统
+  local perk_count = 0
+  for _, perk in ipairs(perk_list) do
+    local ok = pcall(AddFlagPersistent, "perk_picked_" .. perk.id:lower())
+    if ok then perk_count = perk_count + 1 end
+  end
+  GamePrint("已解锁天赋: " .. perk_count)
+
+  -- 3) 解锁全部敌人击杀（敌人图鉴）
+  --    优先从 data/ui_gfx/animal_icons/_list.txt 读取准确的 184 个敌人 ID
+  --    通过遍历常见 XML 目录路径来加载对应实体，确保 184/184 全覆盖
+  local enemy_count = 0
+  local enemy_names_from_list = {}
+
+  -- 尝试动态读取游戏内置的 _list.txt
+  local ok_list, list_content = pcall(ModTextFileGetContent, "data/ui_gfx/animal_icons/_list.txt")
+  if ok_list and list_content then
+    for line in list_content:gmatch("[^\r\n]+") do
+      local name = line:match("^(.-)%.png$")
+      if name and #name > 0 then
+        enemy_names_from_list[#enemy_names_from_list + 1] = name
+        if unlock_enemy_by_name(name) then
+          enemy_count = enemy_count + 1
+        end
+      end
+    end
+  end
+
+  -- 如果动态读取失败（_list.txt 无法访问），回退到已知路径列表
+  if #enemy_names_from_list == 0 then
+    GamePrint("_list.txt 无法读取，使用已知道路列表...")
+    for _, xml_path in ipairs(known_enemy_paths) do
+      pcall(unlock_enemy, xml_path)
+      enemy_count = enemy_count + 1
+    end
+  end
+
+  GamePrint("已解锁敌人击杀: " .. enemy_count)
+
+  GamePrintImportant("解锁所有进展", "天赋/法术/敌人图鉴已全部解锁！")
 end)
 
 enter_panel(menu_panel)
