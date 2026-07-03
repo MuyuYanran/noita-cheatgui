@@ -322,7 +322,7 @@ _i18n = {
             tp_section_bosses = "---- BOSS ----",
             tp_section_eaters = "---- 精粹吞噬者 ----",
             -- 位置标签（当 GameTextGet 查不到时用作回退）
-            tp_loc_pyramid = "金字塔",
+            tp_loc_pyramid = "金字塔门口",
             tp_loc_frozen_vault = "冰冻地下室",
             tp_loc_floating_island = "浮岛",
             tp_loc_pyramid_top = "金字塔顶",

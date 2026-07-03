@@ -1,5 +1,12 @@
--- This file is huge and Noita doesn't have real requires, so
--- manually guard against multiple dofiles
+-- =============================================================================
+-- json.lua - JSON 编码/解码库（第三方库）
+-- =============================================================================
+-- 提供 JSON:decode() 和 JSON:encode_pretty() 功能。
+-- 用于 Web 控制台的 Token 文件读写。
+-- 由于文件较大且 Noita 不支持 require，使用 if JSON then return end 防止重复加载。
+-- =============================================================================
+
+-- 防止重复加载
 if JSON then return end
 
 -- -*- coding: utf-8 -*-

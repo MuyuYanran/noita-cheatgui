@@ -1,3 +1,11 @@
+-- =============================================================================
+-- alchemy.lua - 炼金术配方推算模块
+-- =============================================================================
+-- 复现了 Noita 游戏内 LC（活性混合物）和 AP（炼金前体）的计算逻辑。
+-- 通过世界种子推算出当前世界的炼金术配方所需的材料组合。
+-- =============================================================================
+
+-- 伪随机数生成器：复现 Noita 内置的 PRNG 算法
 local function hax_prng_next(v)
   local hi = math.floor(v / 127773.0)
   local lo = v % 127773
@@ -8,6 +16,7 @@ local function hax_prng_next(v)
   return v
 end
 
+-- Fisher-Yates 洗牌算法：根据种子打乱数组顺序
 local function shuffle(arr, seed)
   local v = math.floor(seed / 2) + 0x30f6
   v = hax_prng_next(v)
@@ -19,6 +28,7 @@ local function shuffle(arr, seed)
   end
 end
 
+-- 液体材料列表（炼金术配方中前三种材料的候选池）
 local LIQUIDS = {"acid",
 "alcohol",
 "blood",
@@ -50,6 +60,7 @@ local LIQUIDS = {"acid",
 "water_swamp",
 "magic_liquid_random_polymorph"}
 
+-- 固体/有机材料列表（炼金术配方中第四种材料的候选池）
 local ORGANICS = {"bone",
 "brass",
 "coal",
@@ -69,12 +80,14 @@ local ORGANICS = {"bone",
 "wax",
 "honey"}
 
+-- 浅拷贝数组（因为 random_material 会修改原数组）
 local function copy_arr(arr)
   local ret = {}
   for k, v in pairs(arr) do ret[k] = v end
   return ret
 end
 
+-- 从材料列表中随机选取一个材料（不重复选取，最多尝试 1000 次）
 local function random_material(v, mats)
   for _ = 1, 1000 do
     v = hax_prng_next(v)
@@ -82,41 +95,46 @@ local function random_material(v, mats)
     local sel_idx = math.floor(#mats * rval) + 1
     local selection = mats[sel_idx]
     if selection then
-      mats[sel_idx] = false
+      mats[sel_idx] = false  -- 标记为已使用，避免重复
       return v, selection
     end
   end
 end
 
+-- 生成一个随机炼金术配方
+-- 从液体列表中选 3 种，有机列表中选 1 种，打乱前 3 个顺序作为配方
 local function random_recipe(rand_state, seed)
   local liqs = copy_arr(LIQUIDS)
   local orgs = copy_arr(ORGANICS)
   local m1, m2, m3, m4 = "?", "?", "?", "?"
-  rand_state, m1 = random_material(rand_state, liqs)
-  rand_state, m2 = random_material(rand_state, liqs)
-  rand_state, m3 = random_material(rand_state, liqs)
-  rand_state, m4 = random_material(rand_state, orgs)
+  rand_state, m1 = random_material(rand_state, liqs)   -- 第1种液体
+  rand_state, m2 = random_material(rand_state, liqs)   -- 第2种液体
+  rand_state, m3 = random_material(rand_state, liqs)   -- 第3种液体
+  rand_state, m4 = random_material(rand_state, orgs)   -- 有机材料
   local combo = {m1, m2, m3, m4}
 
   rand_state = hax_prng_next(rand_state)
-  local prob = 10 + math.floor((rand_state / 2^31) * 91)
+  local prob = 10 + math.floor((rand_state / 2^31) * 91)  -- 生成概率 10%-100%
   rand_state = hax_prng_next(rand_state)
 
-  shuffle(combo, seed)
-  return rand_state, {combo[1], combo[2], combo[3]}, prob
+  shuffle(combo, seed)  -- 用种子打乱，使配方与种子绑定
+  return rand_state, {combo[1], combo[2], combo[3]}, prob  -- 返回前3种 + 概率
 end
 
+-- 对外接口：获取当前世界的炼金术配方
+-- 返回：lc_combo（LC材料组合）, ap_combo（AP材料组合）, lc_prob（LC概率）, ap_prob（AP概率）
 function get_alchemy()
-  local seed = tonumber(StatsGetValue("world_seed"))
+  local seed = tonumber(StatsGetValue("world_seed"))  -- 获取世界种子
   local rand_state = math.floor(seed * 0.17127000 + 1323.59030000)
 
+  -- 跳过前6次随机数，与游戏内逻辑保持一致
   for i = 1, 6 do
     rand_state = hax_prng_next(rand_state)
   end
 
   local lc_combo, ap_combo = {"?"}, {"?"}
-  rand_state, lc_combo, lc_prob = random_recipe(rand_state, seed)
-  rand_state, ap_combo, ap_prob = random_recipe(rand_state, seed)
+  rand_state, lc_combo, lc_prob = random_recipe(rand_state, seed)  -- LC（活性混合物）
+  rand_state, ap_combo, ap_prob = random_recipe(rand_state, seed)  -- AP（炼金前体）
 
   return lc_combo, ap_combo, lc_prob, ap_prob
 end

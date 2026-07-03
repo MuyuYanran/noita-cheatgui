@@ -1,3 +1,19 @@
+-- =============================================================================
+-- cheatgui.lua - CheatGUI 中文分支 主 GUI 文件
+-- =============================================================================
+-- 版本：1.6.0
+-- 
+-- 架构概览：
+--   1. 依赖加载     → 加载所需库和模块（dofile_once + 普通 dofile）
+--   2. 工具函数     → 安全包装、GUI ID 管理、键盘输入处理
+--   3. 面板系统     → Panel 构造器、面板栈（导航前进/后退）、面包屑
+--   4. GUI 组件     → 网格布局、分页、过滤/排序、数值输入、单选按钮
+--   5. 面板定义     → 法杖构建、传送、生命/金币、法术/天赋/药水/法杖/物品
+--   6. 功能面板     → 真菌转化、控制台、设置、其它（作弊按钮）
+--   7. 信息组件     → 实时统计显示（时间、击杀、坐标等）
+--   8. 主循环       → _cheat_gui_main() 每帧驱动 GUI 渲染
+-- =============================================================================
+
 dofile_once("data/scripts/lib/coroutines.lua")
 dofile_once("data/scripts/lib/utilities.lua")
 dofile_once("data/scripts/perks/perk.lua")
@@ -13,6 +29,11 @@ dofile_once("data/hax/utils.lua")
 dofile_once("data/hax/i18n.lua")
 dofile_once("data/hax/config.lua")
 
+-- =============================================================================
+-- 工具函数：国际化、安全包装
+-- =============================================================================
+
+-- 快速翻译函数（i18n 缩写）
 local function T(key) return _i18n:t(key) end
 local function TF(key, ...) return _i18n:tf(key, ...) end
 
@@ -30,23 +51,35 @@ local function safe_biome_name(x, y)
   return name
 end
 
--- 延迟求值：如果 v 是函数则调用它，否则直接返回
+-- 延迟求值：如果 v 是函数则调用它，否则直接返回。用于支持动态文本（i18n 切换）
 local function resolve_str(v)
   if type(v) == "function" then return v() else return v end
 end
+
+-- =============================================================================
+-- 版本与初始化
+-- =============================================================================
 
 local CHEATGUI_VERSION = "1.6.0"
 local CHEATGUI_TITLE = TF("title_version", CHEATGUI_VERSION)
 local console_connected = false
 
 if _keyboard_present then
-  -- 拥有 FFI 支持
+  -- 拥有 FFI 支持（request_no_api_restrictions），加载 Web 控制台模块
   dofile_once("data/hax/console.lua")
 else
+  -- 无键盘支持，标题添加后缀标记
   CHEATGUI_TITLE = CHEATGUI_TITLE .. T("title_no_keyboard_suffix")
 end
 
 local created_gui = false
+
+-- =============================================================================
+-- GUI ID 管理
+-- =============================================================================
+-- Noita 的 GuiButton 需要唯一 ID。使用自增计数器分配 ID。
+-- 每帧通过 reset_id() 重置，防止 ID 溢出。
+-- =============================================================================
 
 local _next_available_id = 100
 local function reset_id()
@@ -58,6 +91,14 @@ local function next_id(n)
   _next_available_id = _next_available_id + n
   return ret
 end
+
+-- =============================================================================
+-- 键盘输入处理
+-- =============================================================================
+-- 通过 hack_type() 接收用户实时键盘输入，用于搜索过滤框的文本输入。
+-- _type_target: 当前活跃的文本输入目标（点击聚焦）
+-- _shift_target: 默认文本输入目标（Shift + 打字激活）
+-- =============================================================================
 
 local _type_target = nil
 local _shift_target = nil
@@ -96,6 +137,13 @@ local function set_type_default(target)
   _shift_target = target
 end
 
+-- =============================================================================
+-- GUI 创建与面板系统
+-- =============================================================================
+-- Panel 构造器：将 name 和 func 组合为一个面板对象。
+-- panel_stack: 面板导航栈，支持前进/后退/跳转。
+-- =============================================================================
+
 if not _cheat_gui then
   print("Creating cheat GUI")
   _cheat_gui = GuiCreate()
@@ -111,11 +159,12 @@ local closed_panel, perk_panel, cards_panel, menu_panel, flasks_panel
 local wands_panel, builder_panel, always_cast_panel, teleport_panel, info_panel
 local health_panel, money_panel, spawn_panel, console_panel
 
+-- Panel 构造器
 local function Panel(options)
   if not options.name then
     options.name = options[1]
   end
-  -- 保存原始 name 引用（可能是函数），用于动态解析
+  -- 保存原始 name 引用（可能是函数），用于动态解析（i18n 切换）
   options._name_src = options.name
   if not options.func then
     options.func = options[2]
@@ -123,6 +172,7 @@ local function Panel(options)
   return options
 end
 
+-- 面板栈：模拟面包屑导航
 local panel_stack = {}
 local _active_panel = nil
 
@@ -193,6 +243,14 @@ local function breadcrumbs(x, y)
   GuiLayoutEnd( gui )
 end
 
+-- =============================================================================
+-- 信息小部件系统
+-- =============================================================================
+-- 小部件显示在 CheatGUI 最小化后的信息栏上。
+-- _info_widgets: 当前激活的小部件
+-- _all_info_widgets: 所有可用小部件（用于设置面板的开关列表）
+-- =============================================================================
+
 local _info_widgets = {}
 local _sorted_info_widgets = {}
 local _all_info_widgets = {}
@@ -221,6 +279,10 @@ local function register_widget(wname, w)
   table.insert(_all_info_widgets, {wname, w})
 end
 
+-- =============================================================================
+-- 关闭状态面板（CheatGUI 最小化时显示）
+-- 显示信息小部件数据和一个 [+] 按钮来展开完整菜单
+-- =============================================================================
 closed_panel = Panel{"[+]", function()
   GuiLayoutBeginHorizontal( gui, 1, 0 )
   if GuiButton( gui, 0, 0, "[+]", next_id() ) then
@@ -256,6 +318,15 @@ end
 local function get_option_text(opt)
   return maybe_call(opt.text or opt[1], opt)
 end
+
+-- =============================================================================
+-- GUI 布局组件
+-- =============================================================================
+-- grid_layout: 将选项列表排列为多列网格（每列 28 个）
+-- wrap_paginate: 为列表添加分页 + 搜索过滤 + 排序功能
+-- create_radio: 单选框组件
+-- create_numerical: 数值输入组件（带 +/- 增量按钮和直接键入）
+-- =============================================================================
 
 local function grid_layout(options, col_width, callback)
   local num_options = #options
@@ -536,6 +607,13 @@ local delay_widget, delay_val = create_numerical(function() return T("wb_delay")
 local spread_widget, spread_val = create_numerical(function() return T("wb_spread") end, {0.1, 1}, 0.0, 'float')
 local speed_widget, speed_val = create_numerical(function() return T("wb_speed") end, {0.01, 0.1}, 1.0, 'float')
 
+-- =============================================================================
+-- 法杖构建器面板
+-- =============================================================================
+-- 提供法杖所有属性的配置控件：洗牌、法力、槽位、多重施法、充能、延迟、散射、速度
+-- 以及始终施法法术选择（最多 10 个）
+-- =============================================================================
+
 --local always_cast_choice = nil
 local MAX_ALWAYS_CASTS=10 -- 最多10个始终施法法术
 local always_cast_index = 1
@@ -608,7 +686,14 @@ end}
 local xpos_widget, xpos_val = create_numerical(function() return T("tp_x") end, {100, 1000, 10000}, 0, 'int')
 local ypos_widget, ypos_val = create_numerical(function() return T("tp_y") end, {100, 1000, 10000}, 0, 'int')
 
--- ── 传送面板折叠状态 ──────────────────────────────────
+-- =============================================================================
+-- 传送面板
+-- =============================================================================
+-- 支持：自定义坐标传送、圣山快速传送（自动扫描）、独立区域传送（生物群系扫描）、
+-- 硬编码位置传送（魔球/精粹/BOSS/精粹吞噬者/世界结构）
+-- =============================================================================
+
+-- 传送面板折叠状态记忆
 _tp_collapsed = _tp_collapsed or {}
 
 local function tp_section_header(key, label)
@@ -932,6 +1017,9 @@ end}
 local cur_hp_widget, cur_hp_val = create_numerical(function() return T("hp_hp") end, {1, 4}, 4, 'hearts')
 local max_hp_widget, max_hp_val = create_numerical(function() return T("hp_max_hp") end, {1, 4}, 4, 'hearts')
 
+-- =============================================================================
+-- 生命面板
+-- =============================================================================
 health_panel = Panel{function() return T("panel_health") end, function()
   cur_hp_widget(1, 12)
   max_hp_widget(1, 16)
@@ -962,6 +1050,9 @@ end}
 
 local money_widget, money_val = create_numerical(function() return T("gold_label") end, {10, 100, 1000}, 0, 'int')
 
+-- =============================================================================
+-- 金币面板
+-- =============================================================================
 money_panel = Panel{function() return T("panel_gold") end, function()
   money_widget(1, 12)
   breadcrumbs(1, 0)
@@ -990,7 +1081,14 @@ money_panel = Panel{function() return T("panel_gold") end, function()
   GuiLayoutEnd(gui)
 end}
 
--- 一次性构建按钮列表，避免每帧重复构建
+-- =============================================================================
+-- 列表构建器：法术 / 天赋 / 药水 / 法杖 / 物品
+-- =============================================================================
+-- 遍历游戏数据构建选项列表，是一次性构建，避免每帧重复创建。
+-- 每个选项包含：text（显示名称，支持本地化）、id、f（点击回调）等字段。
+-- =============================================================================
+
+-- 根据 localize_val 返回内部 ID 或本地化名称
 local function localized_name(thing)
   if not localization_val.value then return thing.id end
   -- 优先查 i18n 实体翻译 → 游戏 ui_name → 原始 id
@@ -1195,6 +1293,13 @@ for idx, item in ipairs(spawn_list) do
   }
 end
 
+-- =============================================================================
+-- 面板定义（法术/天赋/药水/法杖/物品 列表）
+-- =============================================================================
+-- 使用 wrap_localized 包装以支持本地化名称切换时的刷新。
+-- 使用 wrap_paginate 包装以支持分页 + 搜索过滤 + 排序。
+-- =============================================================================
+
 always_cast_panel = Panel{function() return T("panel_always_cast") end, wrap_localized(wrap_paginate(T("spell_select_short"), always_cast_options))}
 cards_panel = Panel{function() return T("panel_spells") end, wrap_localized(wrap_paginate(T("spell_select"), spell_options))}
 perk_panel = Panel{function() return T("panel_perks") end, wrap_localized(wrap_paginate(T("perk_select"), perk_options))}
@@ -1205,6 +1310,9 @@ wands_panel = Panel{function() return T("panel_wands") end, function()
   grid_panel(T("wand_select"), wand_options)
 end}
 
+-- =============================================================================
+-- 信息组件面板（开关小部件显示）
+-- =============================================================================
 info_panel = Panel{function() return T("panel_widgets") end, function()
   breadcrumbs(1, 0)
   GuiLayoutBeginVertical(gui, 1, 11)
@@ -1225,6 +1333,12 @@ info_panel = Panel{function() return T("panel_widgets") end, function()
   end
   GuiLayoutEnd(gui)
 end}
+
+-- =============================================================================
+-- 真菌转化面板
+-- =============================================================================
+-- 显示未来三次真菌转化结果，可选择自定义材料组合并强制触发转化。
+-- =============================================================================
 
 local fungal_conv = {from="blood", to="blood"}
 local fungal_index
@@ -1269,6 +1383,9 @@ local fungal_panel = Panel{function() return T("panel_fungal") end, function()
 end}
 
 
+-- =============================================================================
+-- 控制台面板（Web 远程控制台管理）
+-- =============================================================================
 console_panel = Panel{function() return T("panel_console") end, function()
   breadcrumbs(1, 0)
   GuiLayoutBeginVertical(gui, 1, 11)
@@ -1308,6 +1425,13 @@ local lang_widget, lang_val = create_radio(function() return T("settings_languag
   {function() return T("lang_en") end, "en"}, {function() return T("lang_zh") end, "zh"}
 }, (_i18n.language == "zh" and 2 or 1))
 
+-- =============================================================================
+-- 设置面板
+-- =============================================================================
+-- 从持久化配置加载用户偏好并应用到界面。
+-- 可设置：界面语言（中文/English）
+-- =============================================================================
+
 -- 从永久配置加载用户偏好，覆盖默认值
 _config:load()
 _i18n.language = _config:get("language")
@@ -1328,6 +1452,11 @@ local settings_panel = Panel{function() return T("panel_settings") end, function
   GuiLayoutEnd(gui)
 end}
 
+-- =============================================================================
+-- 其它面板（作弊按钮集合）
+-- =============================================================================
+-- 通过 register_cheat_button 注册的按钮显示在此面板中。
+-- =============================================================================
 other_panel = Panel{function() return T("panel_other") end, function()
   breadcrumbs(1, 0)
   GuiLayoutBeginVertical( gui, 1, 11 )
@@ -1361,6 +1490,13 @@ menu_panel = Panel{CHEATGUI_TITLE, function()
   GuiLayoutEnd(gui)
 end}
 
+
+-- =============================================================================
+-- 作弊按钮注册
+-- =============================================================================
+-- 各作弊功能按钮：编辑法杖、刷新法术、治疗、结束致幻、重置真菌计时、
+-- 观光模式、生成魔球、解锁进度
+-- =============================================================================
 
 register_cheat_button(function() return T("extra_edit_wands") end, function()
   spawn_perk("EDIT_WANDS_EVERYWHERE", get_player())
@@ -1820,7 +1956,13 @@ end)
 enter_panel(menu_panel)
 
 
--- 信息小部件
+-- =============================================================================
+-- 信息小部件注册（显示在最小化状态栏）
+-- =============================================================================
+-- 包括：游玩时间、探索区域、金币、红心、物品、射击数、踢击数、
+-- 击杀数、伤害、帧数、坐标、炼金术配方（LC/AP）
+-- =============================================================================
+
 local function StatsWidget(dispname, keyname, extra_pad)
   local width = math.ceil(#dispname * 0.9) + (extra_pad or 3)
   return {
@@ -1883,27 +2025,36 @@ for _, recipe in ipairs{"LC", "AP"} do
   })
 end
 
+-- =============================================================================
+-- 主渲染循环（每帧由 OnWorldPostUpdate 调用）
+-- =============================================================================
+-- 1. GuiStartFrame() 启动一个新的 GUI 帧
+-- 2. reset_id() 重置按钮 ID 计数器
+-- 3. handle_typing() 处理键盘输入
+-- 4. 执行当前活跃面板的渲染函数
+-- 5. 驱动协程和 WebSocket 服务器
+-- =============================================================================
 function _cheat_gui_main()
   if gui ~= nil then
-    GuiStartFrame( gui )
+    GuiStartFrame( gui )  -- 开始 GUI 帧
   end
 
   if _gui_frame_function ~= nil then
-    reset_id()
-    handle_typing()
-    local happy, errstr = pcall(_gui_frame_function)
+    reset_id()            -- 重置按钮 ID
+    handle_typing()       -- 处理键盘输入
+    local happy, errstr = pcall(_gui_frame_function)  -- 安全执行面板函数
     if not happy then
       print("Gui error: " .. errstr)
       GamePrint(TF("log_gui_error", errstr))
       if console_connected then
         send_all_consoles(errstr .. ":" .. debug.traceback())
       end
-      hide_gui()
+      hide_gui()  -- 出错时隐藏 GUI，避免反复崩溃
     end
   end
 
-  wake_up_waiting_threads(1) -- 来自 coroutines.lua
-  if console_connected and _socket_update then _socket_update() end
+  wake_up_waiting_threads(1) -- 驱动协程（来自 coroutines.lua）
+  if console_connected and _socket_update then _socket_update() end  -- 驱动 WebSocket
 end
 
 hide_gui()
