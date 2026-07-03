@@ -1328,12 +1328,21 @@ local settings_panel = Panel{function() return T("panel_settings") end, function
   GuiLayoutEnd(gui)
 end}
 
+other_panel = Panel{function() return T("panel_other") end, function()
+  breadcrumbs(1, 0)
+  GuiLayoutBeginVertical( gui, 1, 11 )
+  draw_extra_buttons()
+  GuiLayoutEnd(gui)
+end}
+
 local main_panels = {
   perk_panel, cards_panel, flasks_panel, wands_panel, spawn_panel,
   builder_panel, health_panel, money_panel,
-  teleport_panel, fungal_panel, info_panel, gui_grid_ref_panel,
+  teleport_panel, fungal_panel, info_panel, other_panel, gui_grid_ref_panel,
   settings_panel
 }
+
+
 
 if _keyboard_present then table.insert(main_panels, console_panel) end
 
@@ -1349,13 +1358,14 @@ menu_panel = Panel{CHEATGUI_TITLE, function()
   breadcrumbs(1, 0)
   GuiLayoutBeginVertical( gui, 1, 11 )
   draw_main_panels()
-  draw_extra_buttons()
   GuiLayoutEnd(gui)
 end}
+
 
 register_cheat_button(function() return T("extra_edit_wands") end, function()
   spawn_perk("EDIT_WANDS_EVERYWHERE", get_player())
 end)
+
 
 register_cheat_button(function() return T("extra_spell_refresh") end, function()
   GameRegenItemActionsInPlayer(get_player())
@@ -1387,14 +1397,8 @@ register_cheat_button(function() return T("extra_spawn_orbs") end, function()
   end
 end)
 
-if _keyboard_present then
-  register_cheat_button(function() return T("extra_open_console") end, function()
-    open_console()
-    enter_panel(console_panel)
-  end)
-end
-
 enter_panel(menu_panel)
+
 
 -- 信息小部件
 local function StatsWidget(dispname, keyname, extra_pad)

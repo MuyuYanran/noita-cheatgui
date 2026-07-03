@@ -31,6 +31,8 @@ _i18n = {
             panel_always_cast = "always cast",
             panel_shift_material = "shift material",
             panel_settings = "settings",
+            panel_other = "other",
+
 
             -- ====== Breadcrumbs ======
             back = "< back",
@@ -267,6 +269,8 @@ _i18n = {
             panel_always_cast = "始终施法",
             panel_shift_material = "选择材料",
             panel_settings = "设置",
+            panel_other = "其它",
+
 
             -- ====== Breadcrumbs ======
             back = "< 返回",
