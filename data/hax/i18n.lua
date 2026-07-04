@@ -32,6 +32,19 @@ _i18n = {
             panel_shift_material = "shift material",
             panel_settings = "settings",
             panel_other = "other",
+            panel_status_effects = "status effects",
+            panel_free_camera = "free camera",
+            panel_entity_viewer = "entity viewer",
+            panel_material_conv = "material conv.",
+            panel_mod_info = "mod info",
+            panel_fog_of_war = "fog of war",
+            panel_physics = "physics",
+
+            -- ====== Physics panel ======
+            physics_gravity = "Gravity",
+            physics_move_speed = "Move Speed",
+            physics_custom_gravity = "Custom: ",
+            physics_custom_speed = "Custom: ",
 
 
             -- ====== Breadcrumbs ======
@@ -183,6 +196,7 @@ _i18n = {
             console_open_new = "[Open new console]",
             console_separator = "---- Active Connections (click to close) ----",
             console_conn_format = "%s [in: %d, out: %d]",
+            console_dll_missing = "Console unavailable: pollnet.dll is missing or corrupt.\n\nPlace pollnet.dll in mods/cheatgui/bin/ to enable the Web remote console feature.",
 
             -- ====== Info Widgets ======
             widget_playtime = "Playtime",
@@ -271,6 +285,19 @@ _i18n = {
             panel_shift_material = "选择材料",
             panel_settings = "设置",
             panel_other = "其它",
+            panel_status_effects = "状态效果",
+            panel_free_camera = "自由摄像机",
+            panel_entity_viewer = "实体查看器",
+            panel_material_conv = "材料转化",
+            panel_mod_info = "模组信息",
+            panel_fog_of_war = "战争迷雾",
+            panel_physics = "物理参数",
+
+            -- ====== Physics panel ======
+            physics_gravity = "重力",
+            physics_move_speed = "移动速度",
+            physics_custom_gravity = "自定义: ",
+            physics_custom_speed = "自定义: ",
 
 
             -- ====== Breadcrumbs ======
@@ -422,6 +449,7 @@ _i18n = {
             console_open_new = "[打开新控制台]",
             console_separator = "---- 活跃连接（点击关闭）----",
             console_conn_format = "%s [接收: %d, 发送: %d]",
+            console_dll_missing = "控制台不可用：pollnet.dll 缺失或损坏。\n\n将 pollnet.dll 放入 mods/cheatgui/bin/ 即可启用 Web 远程控制台功能。",
 
             -- ====== Info Widgets ======
             widget_playtime = "游戏时间",

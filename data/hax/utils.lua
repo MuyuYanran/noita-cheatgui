@@ -122,7 +122,7 @@ end
 
 -- 观光模式：将玩家设为 healer 阵营（敌人不攻击）
 function set_tourist_mode(enabled)
-  local herd_id = GenomeStringToHerdID(enabled and "healer" or "player")
+  local herd_id = StringToHerdId(enabled and "healer" or "player")
   local genome = EntityGetFirstComponent(get_player(), "GenomeDataComponent")
   ComponentSetValue2(genome, "herd_id", herd_id)
 end

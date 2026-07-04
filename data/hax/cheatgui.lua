@@ -1,17 +1,18 @@
 -- =============================================================================
 -- cheatgui.lua - CheatGUI 中文分支 主 GUI 文件
 -- =============================================================================
--- 版本：1.6.0
+-- 版本：1.7.0
 -- 
 -- 架构概览：
---   1. 依赖加载     → 加载所需库和模块（dofile_once + 普通 dofile）
---   2. 工具函数     → 安全包装、GUI ID 管理、键盘输入处理
+--   1. 依赖加载     → 加载所需库和模块（dofile_once），包含功能模块
+--   2. 工具函数     → 安全包装、GUI ID 管理、键盘输入处理 [部分全局化供功能模块共享]
 --   3. 面板系统     → Panel 构造器、面板栈（导航前进/后退）、面包屑
 --   4. GUI 组件     → 网格布局、分页、过滤/排序、数值输入、单选按钮
 --   5. 面板定义     → 法杖构建、传送、生命/金币、法术/天赋/药水/法杖/物品
 --   6. 功能面板     → 真菌转化、控制台、设置、其它（作弊按钮）
---   7. 信息组件     → 实时统计显示（时间、击杀、坐标等）
---   8. 主循环       → _cheat_gui_main() 每帧驱动 GUI 渲染
+--   7. 功能模块     → 状态效果、自由摄像机、实体查看器、材料转化、模组信息、迷雾控制、物理参数
+--   8. 信息组件     → 实时统计显示（时间、击杀、坐标等）
+--   9. 主循环       → _cheat_gui_main() 每帧驱动 GUI 渲染
 -- =============================================================================
 
 dofile_once("data/scripts/lib/coroutines.lua")
@@ -28,14 +29,15 @@ dofile_once("data/hax/superhackykb.lua")
 dofile_once("data/hax/utils.lua")
 dofile_once("data/hax/i18n.lua")
 dofile_once("data/hax/config.lua")
+-- 新版功能模块加载移到文件末尾（在 Panel/next_id/breadcrumbs 等辅助函数定义之后）
 
 -- =============================================================================
 -- 工具函数：国际化、安全包装
 -- =============================================================================
 
--- 快速翻译函数（i18n 缩写）
-local function T(key) return _i18n:t(key) end
-local function TF(key, ...) return _i18n:tf(key, ...) end
+-- 快速翻译函数（i18n 缩写）—— 全局化以便 feature 文件访问
+function T(key) return _i18n:t(key) end
+function TF(key, ...) return _i18n:tf(key, ...) end
 
 -- 安全包装：避免 nil/空值传入底层 C++ API 引发崩溃
 local function safe_game_text(key, ...)
@@ -60,13 +62,18 @@ end
 -- 版本与初始化
 -- =============================================================================
 
-local CHEATGUI_VERSION = "1.6.0"
+local CHEATGUI_VERSION = "1.7.0"
 local CHEATGUI_TITLE = TF("title_version", CHEATGUI_VERSION)
 local console_connected = false
 
 if _keyboard_present then
-  -- 拥有 FFI 支持（request_no_api_restrictions），加载 Web 控制台模块
-  dofile_once("data/hax/console.lua")
+  -- 拥有 FFI 支持（request_no_api_restrictions），尝试加载 Web 控制台模块
+  -- 用 pcall 包裹以避免 pollnet.dll 缺失时整个 GUI 崩溃
+  local ok, err = pcall(dofile_once, "data/hax/console.lua")
+  if not ok then
+    print("CHEATGUI: console.lua failed to load: " .. tostring(err))
+    _console_unavailable = true
+  end
 else
   -- 无键盘支持，标题添加后缀标记
   CHEATGUI_TITLE = CHEATGUI_TITLE .. T("title_no_keyboard_suffix")
@@ -85,7 +92,7 @@ local _next_available_id = 100
 local function reset_id()
   _next_available_id = 100
 end
-local function next_id(n)
+function next_id(n)  -- 全局化以便 feature 文件访问
   n = n or 1
   local ret = _next_available_id
   _next_available_id = _next_available_id + n
@@ -122,7 +129,7 @@ local function handle_typing()
   end
 end
 
-local function set_type_target(target)
+function set_type_target(target)  -- 全局化以便 feature 文件访问
   if not _keyboard_present then return end
   if _type_target and _type_target.on_lose_focus then
     _type_target:on_lose_focus()
@@ -153,14 +160,16 @@ else
   print("Reloading onto existing GUI")
 end
 
-local gui = _cheat_gui
+gui = _cheat_gui  -- 全局化以便 feature 文件访问
 
 local closed_panel, perk_panel, cards_panel, menu_panel, flasks_panel
 local wands_panel, builder_panel, always_cast_panel, teleport_panel, info_panel
 local health_panel, money_panel, spawn_panel, console_panel
 
--- Panel 构造器
-local function Panel(options)
+-- 新版功能面板（由对应 feature 文件定义为全局变量，不加 local）
+
+-- Panel 构造器（全局化以便 feature 文件访问）
+function Panel(options)
   if not options.name then
     options.name = options[1]
   end
@@ -183,7 +192,7 @@ local function _change_active_panel(panel)
   _gui_frame_function = panel.func
 end
 
-local function prev_panel()
+function prev_panel()  -- 全局化以便 feature 文件访问
   if #panel_stack < 2 then
     _change_active_panel(closed_panel)
     panel_stack = {}
@@ -202,7 +211,7 @@ local function jump_back_panel(idx)
   _change_active_panel(panel_stack[#panel_stack])
 end
 
-local function enter_panel(panel)
+function enter_panel(panel)  -- 全局化以便 feature 文件访问
   panel_stack[#panel_stack+1] = panel
   _change_active_panel(panel)
 end
@@ -225,7 +234,7 @@ local function show_gui()
   end
 end
 
-local function breadcrumbs(x, y)
+function breadcrumbs(x, y)  -- 全局化以便 feature 文件访问
   GuiLayoutBeginHorizontal(gui, x, y)
   if GuiButton( gui, 0, 0, "[-]", next_id()) then
     hide_gui()
@@ -516,7 +525,7 @@ local num_types = {
   hearts = {function(x) return x end, "%d", 25.0}
 }
 
-local function create_numerical(title, increments, default, kind)
+function create_numerical(title, increments, default, kind)  -- 全局化以便 feature 文件访问
   local validate, fstr, multiplier = unpack(num_types[kind or "float"])
 
   local text_wrapper = {
@@ -1386,6 +1395,15 @@ end}
 -- =============================================================================
 -- 控制台面板（Web 远程控制台管理）
 -- =============================================================================
+-- 如果 pollnet.dll 缺失/损坏，用降级面板代替（不崩溃）
+if _console_unavailable then
+  console_panel = Panel{function() return T("panel_console") end, function()
+    breadcrumbs(1, 0)
+    GuiLayoutBeginVertical(gui, 1, 11)
+    GuiText(gui, 0, 0, T("console_dll_missing") or "Console unavailable: pollnet.dll not found in mods/cheatgui/bin/")
+    GuiLayoutEnd(gui)
+  end}
+else
 console_panel = Panel{function() return T("panel_console") end, function()
   breadcrumbs(1, 0)
   GuiLayoutBeginVertical(gui, 1, 11)
@@ -1420,6 +1438,7 @@ console_panel = Panel{function() return T("panel_console") end, function()
   end
   GuiLayoutEnd(gui)
 end}
+end -- _console_unavailable if-else
 
 local lang_widget, lang_val = create_radio(function() return T("settings_language") end, {
   {function() return T("lang_en") end, "en"}, {function() return T("lang_zh") end, "zh"}
@@ -1453,6 +1472,23 @@ local settings_panel = Panel{function() return T("panel_settings") end, function
 end}
 
 -- =============================================================================
+-- 新版功能模块（必须在所有辅助函数定义之后加载，否则 Panel/next_id 等不存在）
+-- =============================================================================
+local function _safe_load(mod_name, path)
+  local ok, err = pcall(dofile_once, path)
+  if not ok then
+    print("CHEATGUI: Failed to load " .. mod_name .. ": " .. tostring(err))
+  end
+end
+_safe_load("status_effects",  "data/hax/status_effects.lua")
+_safe_load("free_camera",     "data/hax/free_camera.lua")
+_safe_load("entity_viewer",   "data/hax/entity_viewer.lua")
+_safe_load("material_conv",   "data/hax/material_converter.lua")
+_safe_load("mod_info",        "data/hax/mod_info.lua")
+_safe_load("fog_of_war",      "data/hax/fog_of_war.lua")
+_safe_load("physics_tweaks",  "data/hax/physics_tweaks.lua")
+
+-- =============================================================================
 -- 其它面板（作弊按钮集合）
 -- =============================================================================
 -- 通过 register_cheat_button 注册的按钮显示在此面板中。
@@ -1468,8 +1504,23 @@ local main_panels = {
   perk_panel, cards_panel, flasks_panel, wands_panel, spawn_panel,
   builder_panel, health_panel, money_panel,
   teleport_panel, fungal_panel, info_panel, other_panel, gui_grid_ref_panel,
-  settings_panel
+  settings_panel,
+  status_effects_panel, free_camera_panel, entity_viewer_panel,
+  material_converter_panel, mod_info_panel, fog_of_war_panel,
+  physics_tweaks_panel
 }
+
+-- 过滤掉加载失败的面板（nil），使用数字循环避免 ipairs/pairs 的问题
+do
+  local _ordered = {}
+  for i = 1, 100 do
+    local p = main_panels[i]
+    if p ~= nil then
+      table.insert(_ordered, p)
+    end
+  end
+  main_panels = _ordered
+end
 
 
 
@@ -1477,8 +1528,11 @@ if _keyboard_present then table.insert(main_panels, console_panel) end
 
 local function draw_main_panels()
   for idx, panel in ipairs(main_panels) do
-    if GuiButton( gui, 0, 0, resolve_str(panel._name_src) .. "->", next_id() ) then
-      enter_panel(panel)
+    -- 跳过加载失败的 nil 面板（安全保护）
+    if panel then
+      if GuiButton( gui, 0, 0, resolve_str(panel._name_src) .. "->", next_id() ) then
+        enter_panel(panel)
+      end
     end
   end
 end
