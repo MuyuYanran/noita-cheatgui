@@ -37,20 +37,20 @@ local function gen_gun()
 
   local name = "HAXXXX"
 	
-	ComponentSetValue( ability_comp, "ui_name", name )
+	ComponentSetValue2( ability_comp, "ui_name", name )
 	-- 设置 gun_config（法杖基本属性）
-	ComponentObjectSetValue( ability_comp, "gun_config", "actions_per_round", gun["actions_per_round"] )
-	ComponentObjectSetValue( ability_comp, "gun_config", "reload_time", gun["reload_time"] )
-	ComponentObjectSetValue( ability_comp, "gun_config", "deck_capacity", gun["deck_capacity"] )
-	ComponentObjectSetValue( ability_comp, "gun_config", "shuffle_deck_when_empty", gun["shuffle_deck_when_empty"] )
+	ComponentObjectSetValue2( ability_comp, "gun_config", "actions_per_round", gun["actions_per_round"] )
+	ComponentObjectSetValue2( ability_comp, "gun_config", "reload_time", gun["reload_time"] )
+	ComponentObjectSetValue2( ability_comp, "gun_config", "deck_capacity", gun["deck_capacity"] )
+	ComponentObjectSetValue2( ability_comp, "gun_config", "shuffle_deck_when_empty", gun["shuffle_deck_when_empty"] )
 	-- 设置 gunaction_config（射击行为属性）
-	ComponentObjectSetValue( ability_comp, "gunaction_config", "fire_rate_wait", gun["fire_rate_wait"] )
-	ComponentObjectSetValue( ability_comp, "gunaction_config", "spread_degrees", gun["spread_degrees"] )
-	ComponentObjectSetValue( ability_comp, "gunaction_config", "speed_multiplier", gun["speed_multiplier"] )
+	ComponentObjectSetValue2( ability_comp, "gunaction_config", "fire_rate_wait", gun["fire_rate_wait"] )
+	ComponentObjectSetValue2( ability_comp, "gunaction_config", "spread_degrees", gun["spread_degrees"] )
+	ComponentObjectSetValue2( ability_comp, "gunaction_config", "speed_multiplier", gun["speed_multiplier"] )
 	-- 设置法力相关属性
-	ComponentSetValue( ability_comp, "mana_charge_speed", gun["mana_charge_speed"])
-	ComponentSetValue( ability_comp, "mana_max", gun["mana_max"])
-	ComponentSetValue( ability_comp, "mana", gun["mana_max"])
+	ComponentSetValue2( ability_comp, "mana_charge_speed", gun["mana_charge_speed"])
+	ComponentSetValue2( ability_comp, "mana_max", gun["mana_max"])
+	ComponentSetValue2( ability_comp, "mana", gun["mana_max"])
 
 	-- -----------------------------------------------------------
 	-- 法术生成逻辑（参考游戏内法杖程序化生成流程）

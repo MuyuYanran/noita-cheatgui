@@ -2,7 +2,7 @@
 -- gun_builder.lua - 法杖构建器模块
 -- =============================================================================
 -- 程序化生成自定义法杖，可配置法力、槽位、散射、施法延迟等所有属性。
--- 先加载空法杖模板，再通过 ComponentSetValue 逐个覆盖参数。
+-- 先加载空法杖模板，再通过 ComponentSetValue2 逐个覆盖参数。
 -- =============================================================================
 
 dofile("data/scripts/gun/procedural/gun_procedural.lua")
@@ -42,17 +42,17 @@ function build_gun(x, y, gun)
   local name = "HAXXXX"
 
   -- 设置法杖基础属性
-  ComponentSetValue( ability_comp, "ui_name", name )
-  ComponentObjectSetValue( ability_comp, "gun_config", "actions_per_round", gun["actions_per_round"] )
-  ComponentObjectSetValue( ability_comp, "gun_config", "reload_time", gun["reload_time"] )
-  ComponentObjectSetValue( ability_comp, "gun_config", "deck_capacity", gun["deck_capacity"] )
-  ComponentObjectSetValue( ability_comp, "gun_config", "shuffle_deck_when_empty", gun["shuffle_deck_when_empty"] )
-  ComponentObjectSetValue( ability_comp, "gunaction_config", "fire_rate_wait", gun["fire_rate_wait"] )
-  ComponentObjectSetValue( ability_comp, "gunaction_config", "spread_degrees", gun["spread_degrees"] )
-  ComponentObjectSetValue( ability_comp, "gunaction_config", "speed_multiplier", gun["speed_multiplier"] )
-  ComponentSetValue( ability_comp, "mana_charge_speed", gun["mana_charge_speed"])
-  ComponentSetValue( ability_comp, "mana_max", gun["mana_max"])
-  ComponentSetValue( ability_comp, "mana", gun["mana_max"])  -- 当前法力 = 最大法力
+  ComponentSetValue2( ability_comp, "ui_name", name )
+  ComponentObjectSetValue2( ability_comp, "gun_config", "actions_per_round", gun["actions_per_round"] )
+  ComponentObjectSetValue2( ability_comp, "gun_config", "reload_time", gun["reload_time"] )
+  ComponentObjectSetValue2( ability_comp, "gun_config", "deck_capacity", gun["deck_capacity"] )
+  ComponentObjectSetValue2( ability_comp, "gun_config", "shuffle_deck_when_empty", gun["shuffle_deck_when_empty"] )
+  ComponentObjectSetValue2( ability_comp, "gunaction_config", "fire_rate_wait", gun["fire_rate_wait"] )
+  ComponentObjectSetValue2( ability_comp, "gunaction_config", "spread_degrees", gun["spread_degrees"] )
+  ComponentObjectSetValue2( ability_comp, "gunaction_config", "speed_multiplier", gun["speed_multiplier"] )
+  ComponentSetValue2( ability_comp, "mana_charge_speed", gun["mana_charge_speed"])
+  ComponentSetValue2( ability_comp, "mana_max", gun["mana_max"])
+  ComponentSetValue2( ability_comp, "mana", gun["mana_max"])  -- 当前法力 = 最大法力
   
   -- 将始终施放法术添加到法杖（这些法术不会消耗槽位，每次施法自动触发）
   local always_casts = gun["always_casts"] or {gun["always_cast"]} or {}

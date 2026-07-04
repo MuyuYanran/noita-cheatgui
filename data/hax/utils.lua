@@ -32,15 +32,15 @@ end
 -- 获取玩家生命值（当前 HP, 最大 HP）
 function get_health()
   local dm = EntityGetComponent(get_player(), "DamageModelComponent")[1]
-  return ComponentGetValue(dm, "hp"), ComponentGetValue(dm, "max_hp")
+  return ComponentGetValue2(dm, "hp"), ComponentGetValue2(dm, "max_hp")
 end
 
 -- 设置玩家生命值
 function set_health(cur_hp, max_hp)
   local damagemodels = EntityGetComponent(get_player(), "DamageModelComponent")
   for _, damagemodel in ipairs(damagemodels or {}) do
-    ComponentSetValue(damagemodel, "max_hp", max_hp)
-    ComponentSetValue(damagemodel, "hp", cur_hp)
+    ComponentSetValue2(damagemodel, "max_hp", max_hp)
+    ComponentSetValue2(damagemodel, "hp", cur_hp)
   end
 end
 
@@ -122,8 +122,9 @@ end
 
 -- 观光模式：将玩家设为 healer 阵营（敌人不攻击）
 function set_tourist_mode(enabled)
-  local herd = (enabled and "healer") or "player"
-  GenomeSetHerdId(get_player(), herd)
+  local herd_id = GenomeStringToHerdID(enabled and "healer" or "player")
+  local genome = EntityGetFirstComponent(get_player(), "GenomeDataComponent")
+  ComponentSetValue2(genome, "herd_id", herd_id)
 end
 
 -- 测试函数：打印 Hello
