@@ -40,6 +40,20 @@ _i18n = {
             panel_fog_of_war = "fog of war",
             panel_physics = "physics",
 
+            -- ====== Material Converter ======
+            mc_title_src = "Source material:",
+            mc_title_dst = "Target material:",
+            mc_title_actions = "---- Actions ----",
+            mc_title_area = "---- Area Convert ----",
+            mc_title_presets = "---- Presets ----",
+            mc_title_entity = "---- Entity Convert (DANGER) ----",
+            mc_btn_global = "[Global: %s -> %s]",
+            mc_btn_everything_gold = "[Everything to Gold!]",
+            mc_btn_get_center = "[Capture area center]",
+            mc_btn_area = "[Convert area (r=%d)]",
+            mc_lbl_center = "Center: (%d, %d)",
+            mc_lbl_radius = "Radius:",
+
             -- ====== Physics panel ======
             physics_gravity = "Gravity",
             physics_move_speed = "Move Speed",
@@ -292,6 +306,20 @@ _i18n = {
             panel_mod_info = "模组信息",
             panel_fog_of_war = "战争迷雾",
             panel_physics = "物理参数",
+
+            -- ====== Material Converter ======
+            mc_title_src = "源材料:",
+            mc_title_dst = "目标材料:",
+            mc_title_actions = "---- 操作 ----",
+            mc_title_area = "---- 区域转化 ----",
+            mc_title_presets = "---- 预设 ----",
+            mc_title_entity = "---- 实体转化（危险）----",
+            mc_btn_global = "[全局: %s -> %s]",
+            mc_btn_everything_gold = "[万物成金!]",
+            mc_btn_get_center = "[获取区域中心]",
+            mc_btn_area = "[区域转化 (半径=%d)]",
+            mc_lbl_center = "中心: (%d, %d)",
+            mc_lbl_radius = "半径:",
 
             -- ====== Physics panel ======
             physics_gravity = "重力",
