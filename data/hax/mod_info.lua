@@ -70,7 +70,7 @@ mod_info_panel = Panel{function() return T("panel_mod_info") end, function()
   -- 当前运行的Lua环境信息
   GuiText(gui, 0, 0, " ")
   GuiText(gui, 0, 0, "---- 已加载模块 ----")
-  GuiText(gui, 0, 0, "cheatgui 版本: 1.6.0")
+  GuiText(gui, 0, 0, "cheatgui 版本: 1.7.3")
   GuiText(gui, 0, 0, "键盘支持: " .. (_keyboard_present and "是" or "否"))
 
   -- 已激活模组列表
