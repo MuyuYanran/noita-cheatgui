@@ -1,34 +1,146 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8"/>
-        <title>noitacon</title>
+<head>
+    <meta charset="UTF-8"/>
+    <title>Noita Console</title>
 
-        <link rel="stylesheet" href="css/codemirror-index.css">
-        <link rel="stylesheet" href="lib/codemirror.css">
-        <link rel="stylesheet" href="lib/xterm.css">
-        <link rel="stylesheet" href="css/themes/dracula.css">
+    <link rel="stylesheet" href="css/codemirror-index.css">
+    <link rel="stylesheet" href="lib/codemirror.css">
+    <link rel="stylesheet" href="lib/xterm.css">
+    <link rel="stylesheet" href="css/themes/dracula.css">
 
-        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
-        <script src="lib/codemirror.js"></script>
-        <script src="lib/modes/lua/lua.js"></script>
-        <script src="lib/xterm.js"></script>
-        <script src="lib/xterm-addon-fit.js"></script>
-        <script src="js/noitaconsole.js"></script>
-    </head>
-    <body>
-        <div id="content-area">
-            <div id="repl" class="row"></div>
-<div id="linecon" class="linerow" id="line-column">
-<textarea id="replinput" autofocus="true">GamePrintImportant("Hello", "") -- 单行输入区</textarea></div>
-<div id="codecon" class="row" id="console-column">
-<textarea id="code" autofocus="true">
--- 此面板用于执行多行 Lua 代码；
--- 按 Shift+Enter 运行此面板中的代码
-for i = 1, 10 do
-  print(i)
-end
-</textarea></div>
-        </div>
-    </body>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            background: #1a1a1a;
+            color: #ccc;
+            font-family: 'Consolas', 'Monaco', monospace;
+            overflow: hidden;
+        }
+        #content-area {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 4px;
+            gap: 4px;
+        }
+        /* Status bar */
+        #status-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 3px 8px;
+            background: #252525;
+            border-radius: 3px;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        #status {
+            padding: 1px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 11px;
+        }
+        .status-connecting { background: #4a4a00; color: #ffff00; }
+        .status-connected { background: #004a00; color: #00ff00; }
+        .status-disconnected, .status-error { background: #4a0000; color: #ff4444; }
+        .status-reconnecting { background: #4a3000; color: #ffaa00; }
+        #status-bar button {
+            background: #333;
+            color: #ccc;
+            border: 1px solid #555;
+            padding: 1px 8px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 11px;
+        }
+        #status-bar button:hover { background: #444; }
+        .status-spacer { flex: 1; }
+        .status-hint { color: #666; font-size: 10px; }
+
+        /* Terminal output area */
+        #repl {
+            flex: 1;
+            min-height: 0;
+            border: 1px solid #333;
+            border-radius: 3px;
+        }
+        .xterm { padding: 4px; }
+
+        /* Input areas */
+        .linerow {
+            flex-shrink: 0;
+            border: 1px solid #333;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        #replinput {
+            width: 100%;
+        }
+        .row {
+            flex-shrink: 0;
+            border: 1px solid #333;
+            border-radius: 3px;
+            overflow: hidden;
+            max-height: 200px;
+        }
+        #code {
+            width: 100%;
+        }
+
+        /* CodeMirror overrides */
+        .CodeMirror {
+            height: auto;
+            font-size: 13px;
+        }
+        .CodeMirror-scroll {
+            min-height: 24px;
+        }
+        #linecon .CodeMirror { height: 28px; }
+
+        /* Section labels */
+        .section-label {
+            font-size: 10px;
+            color: #666;
+            padding: 0 4px;
+            flex-shrink: 0;
+        }
+    </style>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="lib/codemirror.js"></script>
+    <script src="lib/modes/lua/lua.js"></script>
+    <script src="lib/xterm.js"></script>
+    <script src="lib/xterm-addon-fit.js"></script>
+    <script src="js/noitaconsole.js"></script>
+</head>
+<body>
+<div id="content-area">
+    <!-- Status Bar -->
+    <div id="status-bar">
+        <span id="status" class="status-disconnected">DISCONNECTED</span>
+        <button onclick="manualReconnect()" title="Reconnect to server">Reconnect</button>
+        <button onclick="stopReconnecting()" title="Stop auto-reconnect">Stop</button>
+        <span class="status-spacer"></span>
+        <span class="status-hint">Ctrl+L: clear | ↑↓: history | Tab: complete | ?: help | !reconnect</span>
+    </div>
+
+    <!-- Terminal Output -->
+    <div id="repl"></div>
+
+    <!-- Single-line REPL Input -->
+    <div class="section-label">▸ Single-line REPL (Enter to run)</div>
+    <div id="linecon" class="linerow">
+        <textarea id="replinput" autofocus="true" placeholder="Enter Lua code here... (add ? for help)"></textarea>
+    </div>
+
+    <!-- Multi-line Editor -->
+    <div class="section-label">▸ Multi-line Editor (Shift+Enter to run)</div>
+    <div id="codecon" class="row">
+        <textarea id="code"></textarea>
+    </div>
+</div>
+</body>
 </html>

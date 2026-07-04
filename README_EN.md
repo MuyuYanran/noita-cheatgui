@@ -15,7 +15,7 @@ A collection of Noita modding tools: a Chinese-localized fork of CheatGUI, three
 | `dextrome_unlock_enemies.lua` | Standalone script to instantly unlock **all 400+ enemy** progress entries in your in-game progress menu. |
 | `dextrome_unlock_perks_picked.lua` | Standalone script to instantly unlock **all ~107 perk** progress entries. |
 | `dextrome_unlock_spells_used.lua` | Standalone script to instantly unlock **all ~460 spell** progress entries. |
-| `noita-cheatgui/` | The CheatGUI cheat/debug menu mod — Chinese fork v1.6.0 (detailed below). |
+| `noita-cheatgui/` | The CheatGUI cheat/debug menu mod — Chinese fork v1.7.3 (detailed below). |
 
 ## Directory Structure
 
@@ -30,16 +30,23 @@ noita-cheatgui/
 ├── screenshot.jpg                 # Screenshot
 ├── gen_spawnlist.py               # Python generation script
 ├── data/hax/
-│   ├── cheatgui.lua               # Main GUI (~1900 lines)
+│   ├── cheatgui.lua               # Main GUI (~2500 lines)
 │   ├── config.lua                 # Persistent configuration
 │   ├── console.lua                # WebSocket remote console
+│   ├── entity_viewer.lua          # 🆕 Entity viewer
+│   ├── fog_of_war.lua             # 🆕 Fog of war control
+│   ├── free_camera.lua            # 🆕 Free camera
 │   ├── i18n.lua                   # Internationalization (zh/en)
 │   ├── alchemy.lua                # Alchemy recipe data
 │   ├── fungal.lua                 # Fungal shift data
 │   ├── gun_builder.lua            # Wand builder
 │   ├── materials.lua              # Material data
+│   ├── material_converter.lua     # 🆕 Material converter
+│   ├── mod_info.lua               # 🆕 Mod info
+│   ├── physics_tweaks.lua         # 🆕 Physics tweaks
 │   ├── spawnables.lua             # Spawnable entity lists
 │   ├── special_spawnables.lua     # Special spawnables
+│   ├── status_effects.lua         # 🆕 Status effects manager
 │   ├── superhackykb.lua           # Keyboard input support
 │   ├── utils.lua                  # Utility functions
 │   ├── wand_empty.xml             # Empty wand template
@@ -63,7 +70,7 @@ noita-cheatgui/
 
 ## CheatGUI Features
 
-`noita-cheatgui` is a feature-rich in-game cheat/debug menu mod — a Chinese-localized fork of [probable-basilisk/cheatgui](https://github.com/probable-basilisk/cheatgui) (v1.6.0).
+`noita-cheatgui` is a feature-rich in-game cheat/debug menu mod — a Chinese-localized fork of [probable-basilisk/cheatgui](https://github.com/probable-basilisk/cheatgui) (v1.7.3).
 
 ### Panels
 
@@ -71,13 +78,20 @@ noita-cheatgui/
 |-------|-------------|
 | **Wand Builder** | Create custom wands with full control over mana, slots, multicast, spread, cast delay, recharge time, speed, shuffle, and always-cast spells. |
 | **Teleport** | Teleport to arbitrary coordinates or one-click jump to preset locations (main path Holy Mountains, Orbs, Essences, Bosses, Essence Eaters, side biomes, etc.). |
-| **Health** | View current HP, modify max HP, quick +25/+100 max HP boosts. |
+| **Health** | View current HP, modify max HP, quick +25/+100/×10/×100 max HP boosts. |
 | **Gold** | Get/set gold amount, quick +100/+500/+2000. |
 | **Spells** | Spawn any spell into the game world, with search and sort filtering. |
 | **Perks** | Spawn any perk, with search filtering. |
 | **Flasks** | Spawn any potion (bottle/pouch), with adjustable quantity multiplier. |
 | **Wands** | Spawn wands at any level, or the cheat wand (Haxx). |
 | **Items** | Spawn any game item or entity. |
+| **Status Effects** | 🆕 View active status effects, add/remove/set duration (60+ effects), one-click clear negative effects. |
+| **Free Camera** | 🆕 Unlock/lock camera for free movement, D-pad control, adjustable speed, quick-jump to key locations. |
+| **Entity Viewer** | 🆕 Select entities by mouse/tag/player, expand components, view/edit member values, enable/disable components. |
+| **Material Converter** | 🆕 Global/area material conversion, presets (water→gold, etc.), "everything to gold", entity→material, adjustable radius. |
+| **Physics Tweaks** | 🆕 Adjust gravity (moon/mars/zero/inverted) and movement speed multipliers, with custom numeric input (± stepping). |
+| **Fog of War** | 🆕 Reveal/restore entire map fog, area clear/restore/half-fog, adjust player explore radius. Area operations work within currently loaded chunks. |
+| **Mod Info** | 🆕 Display active mod list, API version, build type. |
 | **Fungal Shifts** | View the next three fungal shift results, choose materials to force a shift. |
 | **Info Widgets** | Real-time display: playtime, areas visited, gold, hearts, items, shots fired, kicks, kills, damage taken, frame count, coordinates. |
 | **Console** | Start/stop the WebSocket remote console (see below). |

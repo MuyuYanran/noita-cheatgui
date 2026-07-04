@@ -1,7 +1,7 @@
 -- =============================================================================
 -- cheatgui.lua - CheatGUI 中文分支 主 GUI 文件
 -- =============================================================================
--- 版本：1.7.0
+-- 版本：1.7.3
 -- 
 -- 架构概览：
 --   1. 依赖加载     → 加载所需库和模块（dofile_once），包含功能模块
@@ -62,7 +62,7 @@ end
 -- 版本与初始化
 -- =============================================================================
 
-local CHEATGUI_VERSION = "1.7.0"
+local CHEATGUI_VERSION = "1.7.3"
 local CHEATGUI_TITLE = TF("title_version", CHEATGUI_VERSION)
 local console_connected = false
 
@@ -1201,8 +1201,12 @@ end
 
 local function open_console()
   local auth_token = listen_console_connections()
-  console_connected = true
-  os.execute("start http://localhost:8777/index.html?token=" .. (auth_token or "none"))
+  if auth_token then
+    console_connected = true
+    os.execute("start http://localhost:8777/index.html?token=" .. auth_token)
+  else
+    GamePrint("CheatGUI: Failed to start console server. Check log for details.")
+  end
 end
 
 local seedval = "?"
@@ -1396,6 +1400,14 @@ end}
 -- 控制台面板（Web 远程控制台管理）
 -- =============================================================================
 -- 如果 pollnet.dll 缺失/损坏，用降级面板代替（不崩溃）
+local function format_uptime(seconds)
+  if not seconds or seconds <= 0 then return "00:00:00" end
+  local h = math.floor(seconds / 3600)
+  local m = math.floor((seconds % 3600) / 60)
+  local s = seconds % 60
+  return string.format("%02d:%02d:%02d", h, m, s)
+end
+
 if _console_unavailable then
   console_panel = Panel{function() return T("panel_console") end, function()
     breadcrumbs(1, 0)
@@ -1407,35 +1419,88 @@ else
 console_panel = Panel{function() return T("panel_console") end, function()
   breadcrumbs(1, 0)
   GuiLayoutBeginVertical(gui, 1, 11)
+
+  -- 服务器状态与开关
+  local sinfo = get_server_info and get_server_info() or {running = false}
   if console_connected then
-    if GuiButton( gui, 0, 0, T("console_close_host"), next_id() ) then
+    if GuiButton(gui, 0, 0, T("console_close_host"), next_id()) then
       close_console_connections()
       console_connected = false
     end
   else
-    if GuiButton( gui, 0, 0, T("console_open_host"), next_id() ) then
+    if GuiButton(gui, 0, 0, T("console_open_host"), next_id()) then
+      local token = listen_console_connections()
+      if token then
+        console_connected = true
+      else
+        GamePrint("CheatGUI: Failed to start console server.")
+      end
+    end
+  end
+
+  -- 打开浏览器按钮
+  if GuiButton(gui, 0, 0, T("console_open_browser"), next_id()) then
+    local token = get_console_token and get_console_token() or "none"
+    if not console_connected then
       listen_console_connections()
       console_connected = true
+    else
+      token = get_console_token and get_console_token() or token
     end
+    os.execute("start http://localhost:8777/index.html?token=" .. (token or "none"))
   end
-  if GuiButton( gui, 0, 0, T("console_open_new"), next_id() ) then
-    open_console()
-  end
+
   GuiText(gui, 0, 0, " ") -- spacer
+
+  -- 服务器详细信息
+  if console_connected and sinfo.running then
+    GuiText(gui, 0, 0, T("console_server_running") or "Server: RUNNING")
+    GuiText(gui, 0, 0, TF("console_uptime", format_uptime(sinfo.uptime_seconds)))
+    GuiText(gui, 0, 0, TF("console_ports", sinfo.http_port or 8777))
+
+    -- Token（截断显示 + 可点击复制提示）
+    local token = sinfo.token or ""
+    local token_display = #token > 24 and (token:sub(1, 12) .. "..." .. token:sub(-8)) or token
+    GuiText(gui, 0, 0, TF("console_token", token_display))
+    if GuiButton(gui, 0, 0, T("console_copy_token"), next_id()) then
+      GamePrint("Token: " .. token)
+      GamePrint(T("console_token_copied") or "Token printed to game log (F2)")
+    end
+
+    GuiText(gui, 0, 0, TF("console_clients",
+      (sinfo.clients_authorized or 0) + (sinfo.clients_unauth or 0),
+      sinfo.clients_authorized or 0))
+  elseif console_connected then
+    GuiText(gui, 0, 0, T("console_server_starting") or "Server: Starting...")
+  else
+    GuiText(gui, 0, 0, T("console_server_stopped") or "Server: Stopped")
+  end
+
+  GuiText(gui, 0, 0, " ")
   GuiText(gui, 0, 0, T("console_separator"))
+
+  -- 活跃连接列表
   local conns = get_console_connections()
   local sorted_conns = {}
-  for addr, client in pairs(conns) do
+  for addr, _ in pairs(conns) do
     table.insert(sorted_conns, addr)
   end
-  table.sort(sorted_conns)
-  for _, addr in ipairs(sorted_conns) do
-    local conn = conns[addr] or {stat_out=-1, stat_in=-1}
-    local text = TF("console_conn_format", addr, conn.stat_in or 0, conn.stat_out or 0)
-    if GuiButton( gui, 0, 0, text, next_id() ) then
-      if conns[addr] then conns[addr]:close() end
+  if #sorted_conns > 0 then
+    table.sort(sorted_conns)
+    for _, addr in ipairs(sorted_conns) do
+      local conn = conns[addr]
+      if conn then
+        local auth_str = conn.authorized and T("console_auth_yes") or T("console_auth_no")
+        local text = TF("console_conn_format_v2", addr, auth_str, conn.stat_in or 0, conn.stat_out or 0)
+        if GuiButton(gui, 0, 0, text, next_id()) then
+          if conns[addr] then conns[addr]:close() end
+        end
+      end
     end
+  else
+    GuiText(gui, 0, 0, T("console_no_clients") or "No active connections")
   end
+
   GuiLayoutEnd(gui)
 end}
 end -- _console_unavailable if-else
